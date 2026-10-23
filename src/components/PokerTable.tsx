@@ -212,7 +212,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                     </div>
 
                     {/* Participant Avatar & Name */}
-                    <div className="flex flex-col items-center text-center max-w-[80px]">
+                    <div className="flex flex-col items-center text-center w-20 sm:w-24 max-w-[96px]">
                       <div className="relative">
                         <div
                           className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[11px] shadow-sm"
@@ -229,7 +229,10 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                           </div>
                         )}
                       </div>
-                      <span className="text-[11px] font-medium text-zinc-800 dark:text-zinc-300 truncate w-full mt-1">
+                      <span
+                        title={isCurrentPlayer ? `${participant.name} (Tú)` : participant.name}
+                        className="text-[11px] font-medium text-zinc-800 dark:text-zinc-300 line-clamp-2 break-words leading-tight w-full mt-1 min-h-[2.2em] flex items-center justify-center"
+                      >
                         {isCurrentPlayer ? `${participant.name} (Tú)` : participant.name}
                       </span>
                       {participant.isSpectator && (

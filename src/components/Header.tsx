@@ -204,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               {userName ? userName.charAt(0).toUpperCase() : '?'}
             </div>
-            <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 hidden sm:inline max-w-[100px] truncate">
+            <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 hidden sm:inline max-w-[140px] truncate">
               {userName || 'Tú'}
               {isSpectator && <span className="text-[10px] text-zinc-500 ml-1 font-light">(Obs)</span>}
             </span>
