@@ -5,38 +5,34 @@ export const STORAGE_KEYS = {
   RECENT_ROOMS: 'scrumpoker_recent_rooms',
 };
 
+/**
+ * Persistencia mediante localStorage:
+ * Es la opción óptima para esta aplicación ya que es una SPA que se comunica
+ * por WebSockets y no requiere enviar cabeceras Cookie en cada petición HTTP,
+ * evitando sobrecarga innecesaria de red y problemas de expiración.
+ */
 export function getStoredUserName(): string {
   try {
-    const fromLocal = localStorage.getItem(STORAGE_KEYS.USERNAME);
-    if (fromLocal && fromLocal.trim()) return fromLocal.trim();
-
-    // Cookie fallback
-    if (typeof document !== 'undefined') {
-      const match = document.cookie.match(/(?:^|; )scrumpoker_username=([^;]*)/);
-      if (match && match[1]) {
-        const decoded = decodeURIComponent(match[1]).trim();
-        if (decoded) {
-          localStorage.setItem(STORAGE_KEYS.USERNAME, decoded);
-          return decoded;
-        }
-      }
-    }
+    return (localStorage.getItem(STORAGE_KEYS.USERNAME) || '').trim();
   } catch {
-    // Ignore storage errors
+    return '';
   }
-  return '';
 }
 
 export function setStoredUserName(name: string): void {
   const clean = name.trim();
   try {
-    localStorage.setItem(STORAGE_KEYS.USERNAME, clean);
-    if (typeof document !== 'undefined') {
-      // 1 year persistent cookie
-      const maxAge = 365 * 24 * 60 * 60;
-      document.cookie = `scrumpoker_username=${encodeURIComponent(clean)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+    if (clean) {
+      localStorage.setItem(STORAGE_KEYS.USERNAME, clean);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.USERNAME);
+    }
+
+    // Limpieza de cookie residual si existiese previamente
+    if (typeof document !== 'undefined' && document.cookie.includes('scrumpoker_username=')) {
+      document.cookie = 'scrumpoker_username=; path=/; max-age=0; SameSite=Lax';
     }
   } catch {
-    // Ignore storage errors
+    // Manejo de restricciones en navegadores (modo incógnito estricto, etc.)
   }
 }
