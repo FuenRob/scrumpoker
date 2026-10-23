@@ -104,7 +104,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
           {/* Participants Seats */}
           <div className="w-full z-10 pt-4">
-            <div className="flex flex-wrap items-start justify-center gap-5 sm:gap-7">
+            <div className="flex flex-wrap items-start justify-center gap-5 sm:gap-8">
               {roomState.participants.map((participant) => {
                 const isHost = participant.id === roomState.hostId;
                 const isCurrentPlayer =
@@ -118,69 +118,69 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 return (
                   <div
                     key={participant.id}
-                    className="flex flex-col items-center transition-transform duration-200 hover:scale-[1.02]"
+                    className="flex flex-col items-center w-20 sm:w-24 shrink-0 transition-transform duration-200 hover:scale-[1.02]"
                   >
-                    {/* Card container - strictly fixed dimensions */}
-                    <div className="w-14 h-20 sm:w-16 sm:h-24 shrink-0 perspective-1000 flex items-center justify-center">
+                    {/* Card container - strictly identical fixed size for all players */}
+                    <div className="w-16 h-24 sm:w-20 sm:h-28 shrink-0 perspective-1000 flex items-center justify-center">
                       {participant.isSpectator ? (
                         /* Spectator Slot */
-                        <div className="w-full h-full rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800/80 bg-zinc-100/40 dark:bg-zinc-950/40 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600">
+                        <div className="w-full h-full rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800/80 bg-zinc-100/40 dark:bg-zinc-950/40 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600">
                           <Eye className="w-4 h-4 mb-0.5 stroke-[1.5]" />
-                          <span className="text-[9px] uppercase tracking-wider font-medium">Mira</span>
+                          <span className="text-[10px] uppercase tracking-wider font-medium">Mira</span>
                         </div>
                       ) : !hasVoted ? (
-                        /* Empty Slot (Waiting) */
+                        /* Empty Slot (Waiting to vote) */
                         <div
-                          className={`w-full h-full rounded-xl border border-dashed flex flex-col items-center justify-center gap-1 transition-colors ${
+                          className={`w-full h-full rounded-2xl border border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors ${
                             isCurrentPlayer
-                              ? 'border-zinc-400 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900/40 text-zinc-700 dark:text-zinc-300'
+                              ? 'border-zinc-400 dark:border-zinc-600 bg-zinc-100/50 dark:bg-zinc-900/40 text-zinc-600 dark:text-zinc-300'
                               : 'border-zinc-300 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/30 text-zinc-400 dark:text-zinc-600'
                           }`}
                         >
                           {isCurrentPlayer ? (
                             <>
-                              <span className="text-sm">👇</span>
-                              <span className="text-[9px] font-medium text-center px-1 text-zinc-600 dark:text-zinc-400">
+                              <span className="text-base">🃏</span>
+                              <span className="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400">
                                 Tu carta
                               </span>
                             </>
                           ) : (
                             <>
                               <Loader2 className="w-4 h-4 animate-spin text-zinc-400 dark:text-zinc-700" />
-                              <span className="text-[9px] font-light text-zinc-400 dark:text-zinc-500">Pensando</span>
+                              <span className="text-[10px] font-light text-zinc-400 dark:text-zinc-500">Pensando</span>
                             </>
                           )}
                         </div>
                       ) : !roomState.isRevealed ? (
-                        /* Voted but HIDDEN */
+                        /* Voted but HIDDEN: Identical dimensions and 1px border */
                         isCurrentPlayer ? (
                           /* Current Player: Face-up to user with lock */
-                          <div className="w-full h-full rounded-xl bg-white dark:bg-zinc-900 border-2 border-zinc-800 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 flex flex-col items-center justify-between p-2 shadow-sm animate-in zoom-in-95 duration-150">
-                            <div className="w-full flex justify-between items-center text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
+                          <div className="w-full h-full rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 flex flex-col items-center justify-between p-2 sm:p-2.5 shadow-sm animate-in zoom-in-95 duration-150">
+                            <div className="w-full flex justify-between items-center text-[10px] font-bold text-zinc-400 dark:text-zinc-500">
                               <span>{displayVote}</span>
-                              <Lock className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500 stroke-[1.8]" />
+                              <Lock className="w-3 h-3 text-zinc-400 dark:text-zinc-500 stroke-[1.8]" />
                             </div>
-                            <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                            <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
                               {displayVote === '☕' ? (
-                                <Coffee className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                <Coffee className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                               ) : displayVote === '?' ? (
-                                <HelpCircle className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+                                <HelpCircle className="w-6 h-6 text-zinc-500 dark:text-zinc-400" />
                               ) : (
                                 displayVote
                               )}
                             </div>
-                            <span className="text-[8px] font-medium tracking-tight text-emerald-600 dark:text-emerald-400 uppercase">
-                              Listo
-                            </span>
+                            <div className="w-full flex justify-end text-[10px] font-bold text-zinc-400 dark:text-zinc-500 rotate-180">
+                              {displayVote}
+                            </div>
                           </div>
                         ) : (
-                          /* Other Players: Card Face Down (minimalist back) */
-                          <div className="w-full h-full rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 flex flex-col items-center justify-between p-2 relative shadow-sm">
+                          /* Other Players: Card Face Down with identical dimensions */
+                          <div className="w-full h-full rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 flex flex-col items-center justify-between p-2 sm:p-2.5 relative shadow-sm">
                             <div className="w-full flex justify-between text-[9px] font-mono text-zinc-400 dark:text-zinc-600">
                               <span>•</span>
                               <span>•</span>
                             </div>
-                            <div className="w-5 h-5 rounded-full bg-zinc-200 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700/60 flex items-center justify-center text-zinc-600 dark:text-zinc-300 text-[10px] font-medium">
+                            <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700/60 flex items-center justify-center text-zinc-600 dark:text-zinc-300 text-xs font-medium">
                               ✓
                             </div>
                             <div className="w-full flex justify-between text-[9px] font-mono text-zinc-400 dark:text-zinc-600">
@@ -190,16 +190,16 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                           </div>
                         )
                       ) : (
-                        /* Revealed for ALL */
-                        <div className="w-full h-full rounded-xl bg-white text-zinc-950 border border-zinc-200 shadow-sm flex flex-col items-center justify-between p-2 animate-in flip-in-y duration-300">
+                        /* Revealed for ALL players */
+                        <div className="w-full h-full rounded-2xl bg-white text-zinc-950 border border-zinc-200 shadow-sm flex flex-col items-center justify-between p-2 sm:p-2.5 animate-in flip-in-y duration-300">
                           <div className="w-full flex justify-start text-[10px] font-bold text-zinc-500">
                             {displayVote}
                           </div>
-                          <div className="text-xl sm:text-2xl font-bold text-zinc-950 tracking-tight">
+                          <div className="text-2xl sm:text-3xl font-bold text-zinc-950 tracking-tight">
                             {displayVote === '☕' ? (
-                              <Coffee className="w-5 h-5 text-amber-600" />
+                              <Coffee className="w-6 h-6 text-amber-600" />
                             ) : displayVote === '?' ? (
-                              <HelpCircle className="w-5 h-5 text-zinc-600" />
+                              <HelpCircle className="w-6 h-6 text-zinc-600" />
                             ) : (
                               displayVote
                             )}
@@ -212,11 +212,11 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                     </div>
 
                     {/* Participant Avatar & Name Section */}
-                    <div className="flex flex-col items-center text-center w-20 sm:w-24 shrink-0 mt-2.5">
+                    <div className="flex flex-col items-center text-center w-full mt-2.5">
                       <div className="relative">
                         <div
                           className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[11px] shadow-sm ${
-                            isCurrentPlayer ? 'ring-2 ring-zinc-400 dark:ring-zinc-600' : ''
+                            isCurrentPlayer ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-white dark:ring-offset-zinc-950' : ''
                           }`}
                           style={{ backgroundColor: participant.avatarColor }}
                         >
@@ -232,29 +232,19 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                         )}
                       </div>
 
-                      {/* Name with fixed height (h-8): accommodates 1 or 2 lines without shifting layout */}
-                      <div className="h-8 flex items-center justify-center w-full px-0.5 mt-1">
-                        <span
-                          title={participant.name}
-                          className="text-[11px] font-medium text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-tight break-words text-center"
-                        >
-                          {participant.name}
-                        </span>
-                      </div>
+                      {/* Participant Name: Clean, single line or wraps naturally without artificial extra rows */}
+                      <span
+                        title={participant.name}
+                        className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate max-w-full px-1 mt-1.5"
+                      >
+                        {participant.name}
+                      </span>
 
-                      {/* Fixed height badge container for Tú / Observador */}
-                      <div className="h-4 flex items-center justify-center gap-1 mt-0.5">
-                        {isCurrentPlayer && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                            Tú
-                          </span>
-                        )}
-                        {participant.isSpectator && (
-                          <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-light">
-                            Observador
-                          </span>
-                        )}
-                      </div>
+                      {participant.isSpectator && (
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-light mt-0.5">
+                          Observador
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
