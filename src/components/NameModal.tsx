@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Eye, Sparkles, Check } from 'lucide-react';
+import { User, Eye, Check } from 'lucide-react';
 import { AVATAR_COLORS } from '../utils/stats';
 
 interface NameModalProps {
@@ -32,7 +32,7 @@ export const NameModal: React.FC<NameModalProps> = ({
     e.preventDefault();
     const cleanName = name.trim();
     if (!cleanName) {
-      setError('Por favor, introduce tu nombre o alias para continuar');
+      setError('Introduce tu nombre o alias para continuar');
       return;
     }
     if (cleanName.length > 25) {
@@ -43,25 +43,20 @@ export const NameModal: React.FC<NameModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-white">¿Cómo te llamas?</h2>
-            <p className="text-xs text-slate-400">
-              Tu equipo verá tu nombre y avatar durante la estimación
-            </p>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm font-sans">
+      <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-zinc-100">Configura tu perfil</h2>
+          <p className="text-xs text-zinc-400 font-light mt-0.5">
+            Tu equipo verá tu nombre y color durante la estimación.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name input */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Nombre o Alias <span className="text-rose-400">*</span>
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-1.5">
+              Tu nombre o alias <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
               <input
@@ -72,88 +67,89 @@ export const NameModal: React.FC<NameModalProps> = ({
                   setName(e.target.value);
                   if (error) setError('');
                 }}
-                placeholder="Ej. Carlos Dev, Lucía QA, etc."
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                placeholder="Ej. Carlos Dev, Laura QA"
+                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
               />
-              <User className="absolute right-3.5 top-3.5 w-5 h-5 text-slate-500 pointer-events-none" />
+              <User className="absolute right-3 top-3 w-4 h-4 text-zinc-500 pointer-events-none stroke-[1.5]" />
             </div>
-            {error && <p className="text-xs text-rose-400 mt-1.5">{error}</p>}
+            {error && <p className="text-xs text-rose-400 mt-1">{error}</p>}
           </div>
 
           {/* Color picker */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              Color de tu ficha
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-1.5">
+              Color de ficha
             </label>
-            <div className="flex items-center justify-between gap-2 p-2 bg-slate-950/60 rounded-xl border border-slate-800">
+            <div className="flex items-center justify-between gap-1 p-2 bg-zinc-950 rounded-xl border border-zinc-800">
               {AVATAR_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
                   style={{ backgroundColor: c }}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform hover:scale-110 ${
-                    color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-105' : 'opacity-80 hover:opacity-100'
+                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                    color === c ? 'ring-2 ring-white scale-110' : 'opacity-80 hover:opacity-100'
                   }`}
                 >
-                  {color === c && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
+                  {color === c && <Check className="w-3 h-3 text-white drop-shadow stroke-[3]" />}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Role selection */}
-          <div className="pt-1">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              Rol en la sesión
+          <div>
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-1.5">
+              Rol en la sala
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setIsSpectator(false)}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center ${
+                className={`p-2.5 rounded-xl border transition-all text-center ${
                   !isSpectator
-                    ? 'bg-indigo-600/15 border-indigo-500 text-indigo-300 shadow-sm'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-zinc-800 border-zinc-600 text-zinc-100'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                 }`}
               >
-                <span className="text-2xl mb-1">🃏</span>
-                <span className="text-sm font-semibold">Participante</span>
-                <span className="text-[11px] text-slate-400">Voto y estimo</span>
+                <div className="text-sm font-medium">Participante</div>
+                <div className="text-[10px] text-zinc-400 font-light">Vota estimaciones</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsSpectator(true)}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center ${
+                className={`p-2.5 rounded-xl border transition-all text-center flex flex-col items-center justify-center ${
                   isSpectator
-                    ? 'bg-indigo-600/15 border-indigo-500 text-indigo-300 shadow-sm'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-zinc-800 border-zinc-600 text-zinc-100'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                 }`}
               >
-                <Eye className="w-6 h-6 mb-1 text-slate-300" />
-                <span className="text-sm font-semibold">Observador</span>
-                <span className="text-[11px] text-slate-400">PO, Scrum Master</span>
+                <div className="text-sm font-medium flex items-center gap-1">
+                  <Eye className="w-3 h-3 stroke-[1.8]" />
+                  <span>Observador</span>
+                </div>
+                <div className="text-[10px] text-zinc-400 font-light">Solo visualiza</div>
               </button>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-3 pt-3">
+          <div className="flex items-center gap-2 pt-2">
             {isClosable && onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="w-1/3 py-3 px-4 rounded-xl font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="w-1/3 py-2.5 px-3 rounded-xl font-medium text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
               >
                 Cancelar
               </button>
             )}
             <button
               type="submit"
-              className="flex-1 py-3 px-5 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-500/25 cursor-pointer"
+              className="flex-1 py-2.5 px-4 rounded-xl font-medium text-xs sm:text-sm text-zinc-950 bg-white hover:bg-zinc-200 active:scale-[0.99] transition-all cursor-pointer"
             >
-              Comenzar a estimar
+              Guardar y continuar
             </button>
           </div>
         </form>

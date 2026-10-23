@@ -167,7 +167,7 @@ export function App() {
   // If in room, render active room view
   if (roomId && roomState) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-between selection:bg-zinc-800 selection:text-white font-sans">
         {/* Header */}
         <Header
           roomState={roomState}

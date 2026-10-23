@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, AlertTriangle, TrendingUp, BarChart2, Award } from 'lucide-react';
+import { Sparkles, AlertCircle, TrendingUp, BarChart2, Award } from 'lucide-react';
 import type { Participant, VoteStats } from '../types';
 import { calculateVoteStats } from '../utils/stats';
 
@@ -16,96 +16,88 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ participants }) => {
   const hasDivergence = stats.min !== null && stats.max !== null && stats.max - stats.min > 3;
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl backdrop-blur-md space-y-6">
+    <div className="w-full max-w-3xl mx-auto px-4 py-4 animate-in fade-in duration-200 font-sans">
+      <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-2xl p-5 sm:p-6 space-y-5 backdrop-blur-sm">
         
-        {/* Consensus / Divergence banner */}
+        {/* Consensus or Divergence notice */}
         {isConsensus ? (
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-slate-900 border border-emerald-600/40 text-emerald-200 shadow-md">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-              <Sparkles className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm sm:text-base text-emerald-300">
-                ¡Consenso Unánime ({stats.mode} pt)!
-              </h3>
-              <p className="text-xs text-emerald-400/80">
-                Todos los miembros del equipo han votado exactamente lo mismo. ¡Excelente alineación!
-              </p>
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-zinc-900/70 border border-emerald-900/40 text-emerald-300">
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="text-xs">
+              <span className="font-semibold">Consenso absoluto ({stats.mode} pt)</span>
+              <span className="text-zinc-400 font-light ml-1.5 hidden sm:inline">
+                Todos los participantes han estimado el mismo valor.
+              </span>
             </div>
           </div>
         ) : hasDivergence ? (
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-950/50 border border-amber-600/40 text-amber-200 shadow-md">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-6 h-6 text-amber-400" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm sm:text-base text-amber-300">
-                Divergencia detectada ({stats.min} pt vs {stats.max} pt)
-              </h3>
-              <p className="text-xs text-amber-400/80">
-                Hay una diferencia notable de criterios. Es buen momento para que los votos extremos expliquen qué complejidad o simplicidad ven.
-              </p>
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-zinc-900/70 border border-amber-900/40 text-amber-300">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className="text-xs">
+              <span className="font-semibold">Divergencia ({stats.min} pt vs {stats.max} pt)</span>
+              <span className="text-zinc-400 font-light ml-1.5 hidden sm:inline">
+                Diferencia apreciable de criterio. Momento para intercambiar argumentos.
+              </span>
             </div>
           </div>
         ) : null}
 
-        {/* Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        {/* Minimalist 4 Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Average */}
-          <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Promedio</span>
-              <TrendingUp className="w-4 h-4 text-indigo-400" />
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800/70 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-500 mb-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider">Promedio</span>
+              <TrendingUp className="w-3.5 h-3.5 stroke-[1.5]" />
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white">
+            <div className="text-2xl font-bold text-zinc-100">
               {stats.average !== null ? `${stats.average}` : '—'}
             </div>
-            <span className="text-[11px] text-slate-500 mt-1">Media aritmética</span>
+            <span className="text-[10px] text-zinc-500 font-light mt-0.5">Media aritmética</span>
           </div>
 
           {/* Median */}
-          <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Mediana</span>
-              <BarChart2 className="w-4 h-4 text-purple-400" />
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800/70 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-500 mb-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider">Mediana</span>
+              <BarChart2 className="w-3.5 h-3.5 stroke-[1.5]" />
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white">
+            <div className="text-2xl font-bold text-zinc-100">
               {stats.median !== null ? `${stats.median}` : '—'}
             </div>
-            <span className="text-[11px] text-slate-500 mt-1">Punto intermedio</span>
+            <span className="text-[10px] text-zinc-500 font-light mt-0.5">Punto central</span>
           </div>
 
           {/* Mode */}
-          <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Moda</span>
-              <Award className="w-4 h-4 text-pink-400" />
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800/70 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-500 mb-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider">Moda</span>
+              <Award className="w-3.5 h-3.5 stroke-[1.5]" />
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white">
+            <div className="text-2xl font-bold text-zinc-100">
               {stats.mode || '—'}
             </div>
-            <span className="text-[11px] text-slate-500 mt-1">Valor más frecuente</span>
+            <span className="text-[10px] text-zinc-500 font-light mt-0.5">Más frecuente</span>
           </div>
 
           {/* Agreement % */}
-          <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Consenso</span>
-              <Sparkles className="w-4 h-4 text-emerald-400" />
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800/70 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-500 mb-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider">Acuerdo</span>
+              <Sparkles className="w-3.5 h-3.5 stroke-[1.5]" />
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-400">
+            <div className="text-2xl font-bold text-zinc-100">
               {stats.agreementPercentage}%
             </div>
-            <span className="text-[11px] text-slate-500 mt-1">{stats.totalVoted} votos emitidos</span>
+            <span className="text-[10px] text-zinc-500 font-light mt-0.5">{stats.totalVoted} votos</span>
           </div>
         </div>
 
-        {/* Vote Distribution Bars */}
-        <div className="space-y-3 pt-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Distribución de Votos
-          </h4>
+        {/* Minimalist Distribution */}
+        <div className="space-y-2.5 pt-1">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 block">
+            Distribución de estimaciones
+          </span>
           <div className="space-y-2">
             {Object.entries(stats.distribution).map(([vote, count]) => {
               const pct = Math.round((count / stats.totalVoted) * 100);
@@ -113,23 +105,21 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ participants }) => {
 
               return (
                 <div key={vote} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                  <div className="flex items-center justify-between text-xs font-light text-zinc-300">
                     <span className="flex items-center gap-2">
-                      <span className={`w-7 text-center px-1.5 py-0.5 rounded-md font-mono ${isMode ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                      <span className={`w-6 text-center py-0.5 rounded font-mono text-[11px] ${isMode ? 'bg-zinc-100 text-zinc-950 font-bold' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'}`}>
                         {vote}
                       </span>
                       <span>
                         {count} {count === 1 ? 'voto' : 'votos'}
                       </span>
                     </span>
-                    <span className="text-slate-400">{pct}%</span>
+                    <span className="text-zinc-500 text-[11px]">{pct}%</span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="w-full h-1.5 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800/40">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isMode
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-500'
-                          : 'bg-slate-600'
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        isMode ? 'bg-zinc-200' : 'bg-zinc-600'
                       }`}
                       style={{ width: `${pct}%` }}
                     />

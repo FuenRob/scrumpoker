@@ -23,26 +23,26 @@ export const CardDeck: React.FC<CardDeckProps> = ({
 
   if (isSpectator) {
     return (
-      <div className="w-full bg-slate-950/90 border-t border-slate-800 backdrop-blur-md py-4 px-4 sticky bottom-0 z-30">
-        <div className="max-w-xl mx-auto flex items-center justify-between gap-4 p-3 rounded-2xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
-              <Eye className="w-5 h-5" />
+      <div className="w-full bg-zinc-950/90 border-t border-zinc-800/80 backdrop-blur-md py-3 px-4 sticky bottom-0 z-30 font-sans">
+        <div className="max-w-md mx-auto flex items-center justify-between gap-3 p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400">
+              <Eye className="w-4 h-4 stroke-[1.5]" />
             </div>
             <div>
-              <p className="text-xs sm:text-sm font-semibold text-slate-200">
-                Estás como observador
+              <p className="text-xs font-medium text-zinc-200">
+                Modo observador activo
               </p>
-              <p className="text-[11px] text-slate-400">
-                Puedes ver las cartas de los demás cuando se revelen
+              <p className="text-[11px] text-zinc-500 font-light">
+                Puedes ver las cartas cuando se revelen
               </p>
             </div>
           </div>
           <button
             onClick={() => onToggleSpectator(false)}
-            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors cursor-pointer shrink-0"
+            className="px-3 py-1 rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-medium transition-colors cursor-pointer shrink-0"
           >
-            Quiero votar
+            Votar
           </button>
         </div>
       </div>
@@ -50,27 +50,30 @@ export const CardDeck: React.FC<CardDeckProps> = ({
   }
 
   return (
-    <div className="w-full bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl py-3 sm:py-4 px-2 sm:px-6 sticky bottom-0 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-      <div className="max-w-5xl mx-auto flex flex-col items-center gap-2 sm:gap-3">
-        {/* Header / Instructions */}
-        <div className="w-full flex items-center justify-between text-xs font-semibold px-2">
-          <span className="text-slate-400">
+    <div className="w-full bg-zinc-950/95 border-t border-zinc-800/80 backdrop-blur-md py-3 px-2 sm:px-6 sticky bottom-0 z-30 font-sans">
+      <div className="max-w-4xl mx-auto flex flex-col items-center gap-2">
+        {/* Minimalist status bar */}
+        <div className="w-full flex items-center justify-between text-xs px-2 font-light">
+          <span className="text-zinc-400">
             {isRevealed
-              ? 'Ronda finalizada. Inicia una nueva votación para volver a estimar.'
-              : 'Selecciona tu carta de estimación:'}
+              ? 'Ronda finalizada. Inicia una nueva votación para cambiar estimación.'
+              : 'Elige tu carta de estimación:'}
           </span>
           {selectedCard ? (
-            <span className="text-indigo-400 flex items-center gap-1">
-              <Check className="w-3.5 h-3.5" />
-              Tu voto: <strong className="text-white text-sm">{selectedCard}</strong>
+            <span className="text-zinc-200 flex items-center gap-1.5 font-medium">
+              <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2]" />
+              <span>Tu voto:</span>
+              <strong className="px-1.5 py-0.2 rounded bg-zinc-800 border border-zinc-700 text-white font-mono text-xs">
+                {selectedCard}
+              </strong>
             </span>
           ) : (
-            <span className="text-amber-400/80">Aún no has votado</span>
+            <span className="text-zinc-500 text-[11px]">Sin voto seleccionado</span>
           )}
         </div>
 
-        {/* Cards Carousel / Grid */}
-        <div className="w-full flex items-center justify-start sm:justify-center gap-2 sm:gap-3 overflow-x-auto pb-2 pt-1 px-2 no-scrollbar">
+        {/* Minimalist Cards row */}
+        <div className="w-full flex items-center justify-start sm:justify-center gap-2 overflow-x-auto pb-1.5 pt-1 px-1">
           {cards.map((card) => {
             const isSelected = selectedCard === card;
 
@@ -80,40 +83,38 @@ export const CardDeck: React.FC<CardDeckProps> = ({
                 type="button"
                 disabled={isRevealed}
                 onClick={() => onSelectCard(card)}
-                className={`relative shrink-0 w-12 h-18 sm:w-14 sm:h-22 rounded-xl sm:rounded-2xl flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all duration-200 select-none cursor-pointer ${
+                className={`relative shrink-0 w-11 h-16 sm:w-13 sm:h-20 rounded-xl flex flex-col items-center justify-between p-1.5 transition-all duration-150 select-none cursor-pointer ${
                   isRevealed
-                    ? 'opacity-40 cursor-not-allowed bg-slate-900 border border-slate-800 text-slate-500'
+                    ? 'opacity-30 cursor-not-allowed bg-zinc-900 border border-zinc-800 text-zinc-600'
                     : isSelected
-                    ? 'bg-gradient-to-b from-indigo-500 to-purple-600 text-white -translate-y-2.5 shadow-lg shadow-indigo-500/40 ring-2 ring-white border-transparent'
-                    : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 hover:border-indigo-500/50 hover:-translate-y-1 shadow-md'
+                    ? 'bg-white text-zinc-950 -translate-y-2 border-white shadow-sm font-bold'
+                    : 'bg-zinc-900 hover:bg-zinc-800/90 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:-translate-y-0.5'
                 }`}
               >
-                {/* Top value */}
-                <span className="w-full text-left text-[10px] sm:text-[11px] font-bold opacity-80 leading-none">
+                {/* Top Corner */}
+                <span className="w-full text-left text-[9px] sm:text-[10px] font-medium opacity-70 leading-none">
                   {card}
                 </span>
 
-                {/* Center icon / value */}
-                <div className="text-base sm:text-xl font-extrabold tracking-tight">
+                {/* Center Value */}
+                <div className="text-base sm:text-lg font-bold tracking-tight">
                   {card === '☕' ? (
-                    <Coffee className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300" />
+                    <Coffee className={`w-4 h-4 sm:w-5 sm:h-5 ${isSelected ? 'text-zinc-950' : 'text-amber-400'}`} />
                   ) : card === '?' ? (
-                    <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-300" />
+                    <HelpCircle className={`w-4 h-4 sm:w-5 sm:h-5 ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`} />
                   ) : (
                     card
                   )}
                 </div>
 
-                {/* Bottom value */}
-                <span className="w-full text-right text-[10px] sm:text-[11px] font-bold opacity-80 leading-none rotate-180">
+                {/* Bottom Corner */}
+                <span className="w-full text-right text-[9px] sm:text-[10px] font-medium opacity-70 leading-none rotate-180">
                   {card}
                 </span>
 
-                {/* Selected Indicator Check */}
+                {/* Active dot */}
                 {isSelected && (
-                  <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white text-indigo-600 flex items-center justify-center shadow">
-                    <Check className="w-2.5 h-2.5 stroke-[3]" />
-                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border border-zinc-950" />
                 )}
               </button>
             );
