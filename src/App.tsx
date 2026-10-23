@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useScrumPoker } from './hooks/useScrumPoker';
 import { useTheme } from './hooks/useTheme';
+import { getStoredUserName } from './utils/storage';
 import { Lobby } from './components/Lobby';
 import { Header } from './components/Header';
 import { PokerTable } from './components/PokerTable';
@@ -27,7 +28,7 @@ export function App() {
   };
 
   const [urlRoomId, setUrlRoomId] = useState<string | null>(getRoomIdFromUrl);
-  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [isNameModalOpen, setIsNameModalOpen] = useState<boolean>(() => !getStoredUserName());
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -259,7 +260,7 @@ export function App() {
         initialName={userName}
         initialColor={avatarColor}
         initialIsSpectator={isSpectator}
-        isClosable={true}
+        isClosable={!!userName}
         onSave={handleSaveProfile}
         onClose={() => setIsNameModalOpen(false)}
       />

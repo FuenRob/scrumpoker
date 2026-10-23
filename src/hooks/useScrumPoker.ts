@@ -2,26 +2,18 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { RoomState, DeckType, Participant, HistoryItem } from '../types';
 import confetti from 'canvas-confetti';
+import { STORAGE_KEYS, getStoredUserName, setStoredUserName } from '../utils/storage';
 
 interface UseScrumPokerProps {
   initialRoomId?: string | null;
 }
-
-const STORAGE_KEYS = {
-  USERNAME: 'scrumpoker_username',
-  AVATAR_COLOR: 'scrumpoker_avatar_color',
-  IS_SPECTATOR: 'scrumpoker_is_spectator',
-  RECENT_ROOMS: 'scrumpoker_recent_rooms',
-};
 
 export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
   const [roomId, setRoomId] = useState<string | null>(initialRoomId || null);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [socketId, setSocketId] = useState<string>('user-self');
-  const [userName, setUserName] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEYS.USERNAME) || '';
-  });
+  const [userName, setUserName] = useState<string>(getStoredUserName);
   const [avatarColor, setAvatarColor] = useState<string>(() => {
     return localStorage.getItem(STORAGE_KEYS.AVATAR_COLOR) || '#6366f1';
   });
@@ -380,7 +372,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
       setUserName(cleanName);
       userNameRef.current = cleanName;
-      localStorage.setItem(STORAGE_KEYS.USERNAME, cleanName);
+      setStoredUserName(cleanName);
 
       if (color) {
         setAvatarColor(color);

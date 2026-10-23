@@ -28,6 +28,8 @@ export const NameModal: React.FC<NameModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isFirstTime = !initialName;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = name.trim();
@@ -46,9 +48,13 @@ export const NameModal: React.FC<NameModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 dark:bg-zinc-950/80 backdrop-blur-sm font-sans transition-colors duration-150">
       <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in-95 duration-150">
         <div className="mb-5">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Configura tu perfil</h2>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            {isFirstTime ? '¿Cómo te llamas?' : 'Configura tu perfil'}
+          </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light mt-0.5">
-            Tu equipo verá tu nombre y color durante la estimación.
+            {isFirstTime
+              ? 'Introduce tu nombre para identificarte en las estimaciones. Se guardará para recordarte en próximas visitas.'
+              : 'Tu equipo verá tu nombre y color durante la estimación.'}
           </p>
         </div>
 
@@ -149,7 +155,7 @@ export const NameModal: React.FC<NameModalProps> = ({
               type="submit"
               className="flex-1 py-2.5 px-4 rounded-xl font-medium text-xs sm:text-sm text-white dark:text-zinc-950 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 active:scale-[0.99] transition-all cursor-pointer shadow-sm"
             >
-              Guardar y continuar
+              {isFirstTime ? 'Guardar y empezar' : 'Guardar cambios'}
             </button>
           </div>
         </form>
