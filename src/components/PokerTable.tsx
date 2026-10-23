@@ -118,7 +118,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 return (
                   <div
                     key={participant.id}
-                    className="flex flex-col items-center w-20 sm:w-24 shrink-0 transition-transform duration-200 hover:scale-[1.02]"
+                    className="flex flex-col items-center w-24 sm:w-28 shrink-0 transition-transform duration-200 hover:scale-[1.02]"
                   >
                     {/* Card container - strictly identical fixed size for all players */}
                     <div className="w-16 h-24 sm:w-20 sm:h-28 shrink-0 perspective-1000 flex items-center justify-center">
@@ -232,19 +232,26 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                         )}
                       </div>
 
-                      {/* Participant Name: Clean, single line or wraps naturally without artificial extra rows */}
-                      <span
-                        title={participant.name}
-                        className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate max-w-full px-1 mt-1.5"
-                      >
-                        {participant.name}
-                      </span>
-
-                      {participant.isSpectator && (
-                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-light mt-0.5">
-                          Observador
+                      {/* Participant Name: Full name displayed without truncation */}
+                      <div className="min-h-[2.25rem] flex flex-col items-center justify-start mt-1.5 w-full">
+                        <span
+                          title={participant.name}
+                          className="text-xs font-medium text-zinc-800 dark:text-zinc-200 break-words leading-snug w-full px-0.5"
+                        >
+                          {participant.name}
+                          {isCurrentPlayer && (
+                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-normal ml-1 whitespace-nowrap">
+                              (Tú)
+                            </span>
+                          )}
                         </span>
-                      )}
+
+                        {participant.isSpectator && (
+                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-light mt-0.5">
+                            Observador
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
