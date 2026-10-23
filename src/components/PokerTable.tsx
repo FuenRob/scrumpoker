@@ -104,7 +104,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
           {/* Participants Seats */}
           <div className="w-full z-10 pt-4">
-            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+            <div className="flex flex-wrap items-start justify-center gap-5 sm:gap-7">
               {roomState.participants.map((participant) => {
                 const isHost = participant.id === roomState.hostId;
                 const isCurrentPlayer =
@@ -118,20 +118,20 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 return (
                   <div
                     key={participant.id}
-                    className="flex flex-col items-center gap-2 transition-transform duration-200 hover:scale-[1.02]"
+                    className="flex flex-col items-center transition-transform duration-200 hover:scale-[1.02]"
                   >
-                    {/* Card container */}
-                    <div className="perspective-1000">
+                    {/* Card container - strictly fixed dimensions */}
+                    <div className="w-14 h-20 sm:w-16 sm:h-24 shrink-0 perspective-1000 flex items-center justify-center">
                       {participant.isSpectator ? (
                         /* Spectator Slot */
-                        <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800/80 bg-zinc-100/40 dark:bg-zinc-950/40 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600">
+                        <div className="w-full h-full rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800/80 bg-zinc-100/40 dark:bg-zinc-950/40 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600">
                           <Eye className="w-4 h-4 mb-0.5 stroke-[1.5]" />
                           <span className="text-[9px] uppercase tracking-wider font-medium">Mira</span>
                         </div>
                       ) : !hasVoted ? (
                         /* Empty Slot (Waiting) */
                         <div
-                          className={`w-14 h-20 sm:w-16 sm:h-24 rounded-xl border border-dashed flex flex-col items-center justify-center gap-1 transition-colors ${
+                          className={`w-full h-full rounded-xl border border-dashed flex flex-col items-center justify-center gap-1 transition-colors ${
                             isCurrentPlayer
                               ? 'border-zinc-400 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900/40 text-zinc-700 dark:text-zinc-300'
                               : 'border-zinc-300 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/30 text-zinc-400 dark:text-zinc-600'
@@ -155,7 +155,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                         /* Voted but HIDDEN */
                         isCurrentPlayer ? (
                           /* Current Player: Face-up to user with lock */
-                          <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-xl bg-white dark:bg-zinc-900 border-2 border-zinc-800 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 flex flex-col items-center justify-between p-2 shadow-sm animate-in zoom-in-95 duration-150">
+                          <div className="w-full h-full rounded-xl bg-white dark:bg-zinc-900 border-2 border-zinc-800 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 flex flex-col items-center justify-between p-2 shadow-sm animate-in zoom-in-95 duration-150">
                             <div className="w-full flex justify-between items-center text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
                               <span>{displayVote}</span>
                               <Lock className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500 stroke-[1.8]" />
@@ -175,7 +175,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                           </div>
                         ) : (
                           /* Other Players: Card Face Down (minimalist back) */
-                          <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 flex flex-col items-center justify-between p-2 relative shadow-sm">
+                          <div className="w-full h-full rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 flex flex-col items-center justify-between p-2 relative shadow-sm">
                             <div className="w-full flex justify-between text-[9px] font-mono text-zinc-400 dark:text-zinc-600">
                               <span>•</span>
                               <span>•</span>
@@ -191,7 +191,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                         )
                       ) : (
                         /* Revealed for ALL */
-                        <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-xl bg-white text-zinc-950 border border-zinc-200 shadow-sm flex flex-col items-center justify-between p-2 animate-in flip-in-y duration-300">
+                        <div className="w-full h-full rounded-xl bg-white text-zinc-950 border border-zinc-200 shadow-sm flex flex-col items-center justify-between p-2 animate-in flip-in-y duration-300">
                           <div className="w-full flex justify-start text-[10px] font-bold text-zinc-500">
                             {displayVote}
                           </div>
@@ -211,11 +211,13 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                       )}
                     </div>
 
-                    {/* Participant Avatar & Name */}
-                    <div className="flex flex-col items-center text-center w-20 sm:w-24 max-w-[96px]">
+                    {/* Participant Avatar & Name Section */}
+                    <div className="flex flex-col items-center text-center w-20 sm:w-24 shrink-0 mt-2.5">
                       <div className="relative">
                         <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[11px] shadow-sm"
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[11px] shadow-sm ${
+                            isCurrentPlayer ? 'ring-2 ring-zinc-400 dark:ring-zinc-600' : ''
+                          }`}
                           style={{ backgroundColor: participant.avatarColor }}
                         >
                           {participant.name ? participant.name.charAt(0).toUpperCase() : '?'}
@@ -223,23 +225,36 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                         {isHost && (
                           <div
                             title="Anfitrión de la sala"
-                            className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-amber-500 flex items-center justify-center"
+                            className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-amber-500 flex items-center justify-center shadow-xs"
                           >
                             <Crown className="w-2 h-2" />
                           </div>
                         )}
                       </div>
-                      <span
-                        title={isCurrentPlayer ? `${participant.name} (Tú)` : participant.name}
-                        className="text-[11px] font-medium text-zinc-800 dark:text-zinc-300 line-clamp-2 break-words leading-tight w-full mt-1 min-h-[2.2em] flex items-center justify-center"
-                      >
-                        {isCurrentPlayer ? `${participant.name} (Tú)` : participant.name}
-                      </span>
-                      {participant.isSpectator && (
-                        <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-light leading-none">
-                          Observador
+
+                      {/* Name with fixed height (h-8): accommodates 1 or 2 lines without shifting layout */}
+                      <div className="h-8 flex items-center justify-center w-full px-0.5 mt-1">
+                        <span
+                          title={participant.name}
+                          className="text-[11px] font-medium text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-tight break-words text-center"
+                        >
+                          {participant.name}
                         </span>
-                      )}
+                      </div>
+
+                      {/* Fixed height badge container for Tú / Observador */}
+                      <div className="h-4 flex items-center justify-center gap-1 mt-0.5">
+                        {isCurrentPlayer && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                            Tú
+                          </span>
+                        )}
+                        {participant.isSpectator && (
+                          <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-light">
+                            Observador
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
