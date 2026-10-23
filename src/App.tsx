@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useScrumPoker } from './hooks/useScrumPoker';
+import { useTheme } from './hooks/useTheme';
 import { Lobby } from './components/Lobby';
 import { Header } from './components/Header';
 import { PokerTable } from './components/PokerTable';
@@ -11,6 +12,7 @@ import { Toast, type ToastMessage } from './components/Toast';
 import type { DeckType } from './types';
 
 export function App() {
+  const { theme, toggleTheme } = useTheme();
   // Extract roomId from URL (?room=xyz or hash /#/room/xyz)
   const getRoomIdFromUrl = (): string | null => {
     const params = new URLSearchParams(window.location.search);
@@ -167,7 +169,7 @@ export function App() {
   // If in room, render active room view
   if (roomId && roomState) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-between selection:bg-zinc-800 selection:text-white font-sans">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-white font-sans transition-colors duration-150">
         {/* Header */}
         <Header
           roomState={roomState}
@@ -175,6 +177,8 @@ export function App() {
           avatarColor={avatarColor}
           isSpectator={isSpectator}
           isConnected={isConnected}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           onCopyLink={handleCopyLink}
           onOpenHistory={() => setIsHistoryOpen(true)}
           onOpenProfile={() => setIsNameModalOpen(true)}
@@ -245,6 +249,8 @@ export function App() {
         onJoinRoom={handleJoinRoom}
         onDemoWithBots={handleDemoWithBots}
         userName={userName}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onOpenNameModal={() => setIsNameModalOpen(true)}
       />
 
