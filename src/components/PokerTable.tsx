@@ -1,16 +1,21 @@
 import React from 'react';
-import { Eye, RotateCcw, Crown, CheckCircle2, Coffee, HelpCircle, Loader2 } from 'lucide-react';
+import { Eye, RotateCcw, Crown, CheckCircle2, Coffee, HelpCircle, Loader2, Lock } from 'lucide-react';
 import type { RoomState } from '../types';
 
 interface PokerTableProps {
   roomState: RoomState;
   currentUserId?: string;
+  currentUserName?: string;
+  selectedCard?: string | null;
   onRevealVotes: () => void;
   onResetVotes: () => void;
 }
 
 export const PokerTable: React.FC<PokerTableProps> = ({
   roomState,
+  currentUserId,
+  currentUserName,
+  selectedCard,
   onRevealVotes,
   onResetVotes,
 }) => {
@@ -23,9 +28,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
       {/* The Table Outer Container */}
       <div className="w-full max-w-5xl relative">
         {/* The Poker Felt Oval Surface */}
-        <div className="w-full min-h-[380px] sm:min-h-[420px] rounded-[2.5rem] bg-gradient-to-b from-slate-900/90 via-slate-900/80 to-slate-950/90 border-2 border-indigo-500/20 shadow-[0_0_50px_-12px_rgba(99,102,241,0.15)] backdrop-blur-xl p-6 sm:p-10 flex flex-col items-center justify-between relative overflow-hidden">
+        <div className="w-full min-h-[380px] sm:min-h-[420px] rounded-[2.5rem] bg-gradient-to-b from-slate-900/95 via-slate-900/85 to-slate-950/95 border-2 border-indigo-500/20 shadow-[0_0_50px_-12px_rgba(99,102,241,0.2)] backdrop-blur-xl p-6 sm:p-10 flex flex-col items-center justify-between relative overflow-hidden">
           
-          {/* Subtle agile table watermark / grid */}
+          {/* Agile table watermark / grid */}
           <div className="absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent pointer-events-none" />
 
@@ -54,7 +59,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                   {allVoted ? '¿Listos para desvelar?' : 'Votaciones en curso'}
                 </h2>
                 <p className="text-xs text-slate-400 max-w-xs">
-                  Las estimaciones se mantienen ocultas hasta que alguien pulse revelar.
+                  {selectedCard
+                    ? 'Tu voto está listo. Pulsa en Revelar Cartas cuando todos hayan votado.'
+                    : 'Selecciona una carta en la barra inferior para registrar tu estimación.'}
                 </p>
 
                 {/* Big Reveal Button */}
@@ -63,7 +70,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                   disabled={votedCount === 0}
                   className={`mt-2 flex items-center gap-2.5 px-6 py-3.5 rounded-2xl font-bold text-sm sm:text-base transition-all shadow-xl cursor-pointer ${
                     votedCount > 0
-                      ? 'bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-500 hover:from-indigo-600 hover:via-purple-700 hover:to-pink-600 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95'
+                      ? 'bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-500 hover:from-indigo-600 hover:via-purple-700 hover:to-pink-600 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95 animate-pulse'
                       : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
                   }`}
                 >
@@ -102,6 +109,13 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-7">
               {roomState.participants.map((participant) => {
                 const isHost = participant.id === roomState.hostId;
+                const isCurrentPlayer =
+                  (currentUserId && participant.id === currentUserId) ||
+                  participant.name === currentUserName ||
+                  participant.id === 'user-self';
+
+                const displayVote = participant.vote || (isCurrentPlayer ? selectedCard : null);
+                const hasVoted = participant.hasVoted || (isCurrentPlayer && !!selectedCard);
 
                 return (
                   <div
@@ -116,46 +130,87 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                           <Eye className="w-5 h-5 mb-1" />
                           <span className="text-[10px] uppercase font-semibold">Mira</span>
                         </div>
-                      ) : !participant.hasVoted ? (
+                      ) : !hasVoted ? (
                         /* Has Not Voted Yet Slot */
-                        <div className="w-16 h-24 sm:w-18 sm:h-28 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/50 flex flex-col items-center justify-center text-slate-500 gap-1.5 shadow-inner">
-                          <Loader2 className="w-5 h-5 animate-spin text-slate-600" />
-                          <span className="text-[10px] font-medium tracking-tight">Pensando</span>
+                        <div
+                          className={`w-16 h-24 sm:w-18 sm:h-28 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 shadow-inner transition-colors ${
+                            isCurrentPlayer
+                              ? 'border-indigo-500/60 bg-indigo-950/20 text-indigo-300 ring-2 ring-indigo-500/20'
+                              : 'border-slate-700 bg-slate-900/50 text-slate-500'
+                          }`}
+                        >
+                          {isCurrentPlayer ? (
+                            <>
+                              <span className="text-base animate-bounce">👇</span>
+                              <span className="text-[10px] font-semibold text-center px-1 leading-tight text-indigo-300">
+                                Elige carta
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin text-slate-600" />
+                              <span className="text-[10px] font-medium tracking-tight">Pensando</span>
+                            </>
+                          )}
                         </div>
                       ) : !roomState.isRevealed ? (
-                        /* Voted but HIDDEN: Card Face Down */
-                        <div className="w-16 h-24 sm:w-18 sm:h-28 rounded-2xl bg-gradient-to-br from-indigo-700 via-indigo-900 to-purple-950 border-2 border-indigo-400/50 shadow-lg shadow-indigo-500/20 flex flex-col items-center justify-between p-2 relative overflow-hidden group">
-                          {/* Card pattern */}
-                          <div className="absolute inset-0 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:10px_10px] opacity-30" />
-                          <div className="w-full flex justify-between text-[10px] font-bold text-indigo-300">
-                            <span>SP</span>
-                            <span>SP</span>
+                        /* Voted but HIDDEN: Show to user themselves, face-down to others */
+                        isCurrentPlayer ? (
+                          /* CURRENT USER: Shows their own chosen card with a lock icon */
+                          <div className="w-16 h-24 sm:w-18 sm:h-28 rounded-2xl bg-gradient-to-b from-indigo-950 via-slate-900 to-indigo-900 border-2 border-indigo-400 shadow-xl shadow-indigo-500/30 flex flex-col items-center justify-between p-2 relative animate-in zoom-in-95 duration-200">
+                            <div className="w-full flex justify-between items-center text-[11px] font-black text-indigo-300">
+                              <span>{displayVote}</span>
+                              <Lock className="w-3 h-3 text-indigo-400" />
+                            </div>
+                            <div className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
+                              {displayVote === '☕' ? (
+                                <Coffee className="w-7 h-7 text-amber-300" />
+                              ) : displayVote === '?' ? (
+                                <HelpCircle className="w-7 h-7 text-indigo-300" />
+                              ) : (
+                                displayVote
+                              )}
+                            </div>
+                            <div className="w-full text-center">
+                              <span className="text-[9px] font-bold tracking-tight text-emerald-400 uppercase">
+                                ✓ Registrado
+                              </span>
+                            </div>
                           </div>
-                          <div className="w-7 h-7 rounded-full bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center text-indigo-200 text-xs font-black shadow-inner">
-                            ✓
+                        ) : (
+                          /* OTHER PLAYERS: Card Face Down with geometric agile back */
+                          <div className="w-16 h-24 sm:w-18 sm:h-28 rounded-2xl bg-gradient-to-br from-indigo-700 via-indigo-900 to-purple-950 border-2 border-indigo-400/50 shadow-lg shadow-indigo-500/20 flex flex-col items-center justify-between p-2 relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:10px_10px] opacity-30" />
+                            <div className="w-full flex justify-between text-[10px] font-bold text-indigo-300">
+                              <span>SP</span>
+                              <span>SP</span>
+                            </div>
+                            <div className="w-7 h-7 rounded-full bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center text-indigo-200 text-xs font-black shadow-inner">
+                              ✓
+                            </div>
+                            <div className="w-full flex justify-between text-[10px] font-bold text-indigo-300 rotate-180">
+                              <span>SP</span>
+                              <span>SP</span>
+                            </div>
                           </div>
-                          <div className="w-full flex justify-between text-[10px] font-bold text-indigo-300 rotate-180">
-                            <span>SP</span>
-                            <span>SP</span>
-                          </div>
-                        </div>
+                        )
                       ) : (
-                        /* Voted and REVEALED: Card Face UP */
+                        /* Voted and REVEALED: Card Face UP for ALL */
                         <div className="w-16 h-24 sm:w-18 sm:h-28 rounded-2xl bg-gradient-to-b from-white to-slate-100 text-slate-900 border-2 border-indigo-400 shadow-xl shadow-indigo-500/20 flex flex-col items-center justify-between p-2 animate-in flip-in-y duration-500">
                           <div className="w-full flex justify-start text-[11px] font-black text-indigo-600">
-                            {participant.vote}
+                            {displayVote}
                           </div>
                           <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">
-                            {participant.vote === '☕' ? (
+                            {displayVote === '☕' ? (
                               <Coffee className="w-7 h-7 text-amber-600" />
-                            ) : participant.vote === '?' ? (
+                            ) : displayVote === '?' ? (
                               <HelpCircle className="w-7 h-7 text-slate-600" />
                             ) : (
-                              participant.vote
+                              displayVote
                             )}
                           </div>
                           <div className="w-full flex justify-end text-[11px] font-black text-indigo-600 rotate-180">
-                            {participant.vote}
+                            {displayVote}
                           </div>
                         </div>
                       )}
@@ -165,7 +220,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                     <div className="flex flex-col items-center text-center max-w-[90px]">
                       <div className="relative">
                         <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md border-2 border-slate-900"
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md border-2 ${
+                            isCurrentPlayer ? 'border-indigo-400 ring-2 ring-indigo-500/40' : 'border-slate-900'
+                          }`}
                           style={{ backgroundColor: participant.avatarColor }}
                         >
                           {participant.name ? participant.name.charAt(0).toUpperCase() : '?'}
@@ -180,7 +237,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                         )}
                       </div>
                       <span className="text-xs font-semibold text-slate-200 truncate w-full mt-1">
-                        {participant.name}
+                        {isCurrentPlayer ? `${participant.name} (Tú)` : participant.name}
                       </span>
                       {participant.isSpectator && (
                         <span className="text-[10px] text-slate-500 font-medium leading-none">

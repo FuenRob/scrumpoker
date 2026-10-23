@@ -45,6 +45,7 @@ export function App() {
     roomId,
     roomState,
     isConnected,
+    socketId,
     userName,
     avatarColor,
     isSpectator,
@@ -189,6 +190,9 @@ export function App() {
           {/* Poker Table */}
           <PokerTable
             roomState={roomState}
+            currentUserId={socketId}
+            currentUserName={userName}
+            selectedCard={selectedCard}
             onRevealVotes={revealVotes}
             onResetVotes={resetVotes}
           />
