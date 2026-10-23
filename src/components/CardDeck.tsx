@@ -23,8 +23,8 @@ export const CardDeck: React.FC<CardDeckProps> = ({
 
   if (isSpectator) {
     return (
-      <div className="w-full bg-zinc-950/90 border-t border-zinc-800/80 backdrop-blur-md py-3 px-4 sticky bottom-0 z-30 font-sans">
-        <div className="max-w-md mx-auto flex items-center justify-between gap-3 p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
+      <div className="w-full bg-zinc-950/90 border-t border-zinc-800/80 backdrop-blur-md pt-6 pb-6 px-4 sticky bottom-0 z-30 font-sans">
+        <div className="max-w-md mx-auto flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-900 border border-zinc-800">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400">
               <Eye className="w-4 h-4 stroke-[1.5]" />
@@ -50,8 +50,8 @@ export const CardDeck: React.FC<CardDeckProps> = ({
   }
 
   return (
-    <div className="w-full bg-zinc-950/95 border-t border-zinc-800/80 backdrop-blur-md py-3 px-2 sm:px-6 sticky bottom-0 z-30 font-sans">
-      <div className="max-w-4xl mx-auto flex flex-col items-center gap-2">
+    <div className="w-full bg-zinc-950/95 border-t border-zinc-800/80 backdrop-blur-md pt-7 pb-6 sm:pt-9 sm:pb-8 px-2 sm:px-6 sticky bottom-0 z-30 font-sans shadow-[0_-8px_25px_rgba(0,0,0,0.5)]">
+      <div className="max-w-4xl mx-auto flex flex-col items-center gap-3">
         {/* Minimalist status bar */}
         <div className="w-full flex items-center justify-between text-xs px-2 font-light">
           <span className="text-zinc-400">
@@ -73,7 +73,7 @@ export const CardDeck: React.FC<CardDeckProps> = ({
         </div>
 
         {/* Minimalist Cards row */}
-        <div className="w-full flex items-center justify-start sm:justify-center gap-2 overflow-x-auto pb-1.5 pt-1 px-1">
+        <div className="w-full flex items-center justify-start sm:justify-center gap-2 sm:gap-2.5 overflow-x-auto pb-2 pt-3 px-1">
           {cards.map((card) => {
             const isSelected = selectedCard === card;
 
