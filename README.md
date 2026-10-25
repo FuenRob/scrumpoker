@@ -60,6 +60,8 @@ Construida con **ReactJS**, **Tailwind CSS**, **Node.js + Socket.IO**, gestionad
 
 ### 1. Clonar e instalar dependencias con `pnpm`:
 ```bash
+git clone https://github.com/FuenRob/scrumpoker.git
+cd scrumpoker
 pnpm install
 ```
 

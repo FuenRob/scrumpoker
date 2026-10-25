@@ -3,6 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FuenRob/scrumpoker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FuenRob/scrumpoker/issues"
+  },
+  "homepage": "https://github.com/FuenRob/scrumpoker#readme",
   "scripts": {
     "dev": "concurrently -k -n \"server,client\" -c \"blue,magenta\" \"tsx server/index.ts\" \"vite\"",
     "dev:server": "tsx server/index.ts",
