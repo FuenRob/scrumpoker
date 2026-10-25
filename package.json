@@ -11,6 +11,7 @@
     "url": "https://github.com/FuenRob/scrumpoker/issues"
   },
   "homepage": "https://github.com/FuenRob/scrumpoker#readme",
+  "packageManager": "pnpm@11.22.0",
   "scripts": {
     "dev": "concurrently -k -n \"server,client\" -c \"blue,magenta\" \"tsx server/index.ts\" \"vite\"",
     "dev:server": "tsx server/index.ts",
