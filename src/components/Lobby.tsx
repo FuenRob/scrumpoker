@@ -19,8 +19,10 @@ interface LobbyProps {
   onDemoWithBots: () => void;
   userName: string;
   theme: Theme;
+  crabMode?: boolean;
   onToggleTheme: () => void;
   onOpenNameModal: () => void;
+  onToggleCrabMode?: () => void;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({
@@ -29,13 +31,25 @@ export const Lobby: React.FC<LobbyProps> = ({
   onDemoWithBots,
   userName,
   theme,
+  crabMode = false,
   onToggleTheme,
   onOpenNameModal,
+  onToggleCrabMode,
 }) => {
   const [roomName, setRoomName] = useState('');
   const [deckType, setDeckType] = useState<DeckType>('modified-fibonacci');
   const [joinInput, setJoinInput] = useState('');
   const [error, setError] = useState('');
+  const logoClicksRef = React.useRef<number[]>([]);
+
+  const handleLogoBadgeClick = () => {
+    const now = Date.now();
+    logoClicksRef.current = [...logoClicksRef.current.filter((t) => now - t < 2500), now];
+    if (logoClicksRef.current.length >= 5) {
+      logoClicksRef.current = [];
+      onToggleCrabMode?.();
+    }
+  };
 
   const recentRooms: string[] = React.useMemo(() => {
     try {
@@ -85,8 +99,12 @@ export const Lobby: React.FC<LobbyProps> = ({
       {/* Top minimalist header */}
       <header className="max-w-5xl w-full mx-auto px-6 py-6 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-900">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-800 dark:text-zinc-200">
-            ♠
+          <div
+            onClick={handleLogoBadgeClick}
+            className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-800 dark:text-zinc-200 select-none cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+            title={crabMode ? '🦀 Modo cangrejo activo' : 'Scrum Poker'}
+          >
+            {crabMode ? '🦀' : '♠'}
           </div>
           <span className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
             Scrum Poker

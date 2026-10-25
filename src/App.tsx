@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useScrumPoker } from './hooks/useScrumPoker';
 import { useTheme } from './hooks/useTheme';
-import { getStoredUserName } from './utils/storage';
+import { getStoredUserName, getStoredCrabMode, setStoredCrabMode } from './utils/storage';
 import { Lobby } from './components/Lobby';
 import { Header } from './components/Header';
 import { PokerTable } from './components/PokerTable';
@@ -10,6 +10,7 @@ import { StatsPanel } from './components/StatsPanel';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { NameModal } from './components/NameModal';
 import { Toast, type ToastMessage } from './components/Toast';
+import { CrabSwarm } from './components/CrabSwarm';
 import type { DeckType } from './types';
 
 export function App() {
@@ -31,14 +32,28 @@ export function App() {
   const [isNameModalOpen, setIsNameModalOpen] = useState<boolean>(() => !getStoredUserName());
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [crabMode, setCrabMode] = useState<boolean>(getStoredCrabMode);
 
-  const addToast = (type: 'success' | 'error' | 'info', text: string) => {
+  const addToast = useCallback((type: 'success' | 'error' | 'info', text: string) => {
     const id = `toast_${Date.now()}_${Math.random()}`;
     setToasts((prev) => [...prev, { id, type, text }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
-  };
+  }, []);
+
+  const toggleCrabMode = useCallback(() => {
+    setCrabMode((prev) => {
+      const next = !prev;
+      setStoredCrabMode(next);
+      if (next) {
+        addToast('success', '🦀 ¡Modo cangrejo activado! Tu carta de café ahora es un cangrejo.');
+      } else {
+        addToast('info', '☕ Modo cangrejo desactivado. Has vuelto al café tradicional.');
+      }
+      return next;
+    });
+  }, [addToast]);
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -64,6 +79,8 @@ export function App() {
     saveUserName,
     addDemoBots,
     isSimulated,
+    showCrabSwarm,
+    closeCrabSwarm,
   } = useScrumPoker({ initialRoomId: urlRoomId });
 
   // Listen for browser back/forward buttons
@@ -179,6 +196,7 @@ export function App() {
           isSpectator={isSpectator}
           isConnected={isConnected}
           theme={theme}
+          crabMode={crabMode}
           onToggleTheme={toggleTheme}
           onCopyLink={handleCopyLink}
           onOpenHistory={() => setIsHistoryOpen(true)}
@@ -188,6 +206,7 @@ export function App() {
           onUpdateStory={updateStory}
           onAddBots={addDemoBots}
           isSimulated={isSimulated}
+          onToggleCrabMode={toggleCrabMode}
         />
 
         {/* Main Content Area */}
@@ -214,6 +233,7 @@ export function App() {
           selectedCard={selectedCard}
           isRevealed={roomState.isRevealed}
           isSpectator={isSpectator}
+          crabMode={crabMode}
           onSelectCard={castVote}
           onToggleSpectator={toggleSpectator}
         />
@@ -236,6 +256,12 @@ export function App() {
           onClose={() => setIsHistoryOpen(false)}
         />
 
+        {/* Crab Easter Egg Swarm */}
+        <CrabSwarm
+          active={showCrabSwarm}
+          onComplete={closeCrabSwarm}
+        />
+
         {/* Floating Toasts */}
         <Toast toasts={toasts} onDismiss={removeToast} />
       </div>
@@ -251,8 +277,10 @@ export function App() {
         onDemoWithBots={handleDemoWithBots}
         userName={userName}
         theme={theme}
+        crabMode={crabMode}
         onToggleTheme={toggleTheme}
         onOpenNameModal={() => setIsNameModalOpen(true)}
+        onToggleCrabMode={toggleCrabMode}
       />
 
       <NameModal
@@ -263,6 +291,12 @@ export function App() {
         isClosable={!!userName}
         onSave={handleSaveProfile}
         onClose={() => setIsNameModalOpen(false)}
+      />
+
+      {/* Crab Easter Egg Swarm */}
+      <CrabSwarm
+        active={showCrabSwarm}
+        onComplete={closeCrabSwarm}
       />
 
       <Toast toasts={toasts} onDismiss={removeToast} />

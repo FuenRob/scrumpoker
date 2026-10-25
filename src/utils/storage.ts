@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   AVATAR_COLOR: 'scrumpoker_avatar_color',
   IS_SPECTATOR: 'scrumpoker_is_spectator',
   RECENT_ROOMS: 'scrumpoker_recent_rooms',
+  CRAB_MODE: 'scrumpoker_crab_mode',
 };
 
 /**
@@ -34,5 +35,32 @@ export function setStoredUserName(name: string): void {
     }
   } catch {
     // Manejo de restricciones en navegadores (modo incógnito estricto, etc.)
+  }
+}
+
+export function getStoredCrabMode(): boolean {
+  try {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('crab') === '1' || params.get('crab') === 'true') {
+        localStorage.setItem(STORAGE_KEYS.CRAB_MODE, 'true');
+        return true;
+      }
+    }
+    return localStorage.getItem(STORAGE_KEYS.CRAB_MODE) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setStoredCrabMode(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(STORAGE_KEYS.CRAB_MODE, 'true');
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CRAB_MODE);
+    }
+  } catch {
+    // Ignore storage restrictions
   }
 }

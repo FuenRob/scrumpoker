@@ -50,3 +50,48 @@ body {
 .dark ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
+
+/* Crab Easter Egg Animations */
+@keyframes crab-march {
+  0% {
+    transform: translate3d(105vw, 0, 0);
+  }
+  100% {
+    transform: translate3d(calc(-15vw - 100px), 0, 0);
+  }
+}
+
+@keyframes crab-scuttle {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-9px) rotate(-14deg);
+  }
+  50% {
+    transform: translateY(3px) rotate(8deg);
+  }
+  75% {
+    transform: translateY(-6px) rotate(-10deg);
+  }
+}
+
+.crab-swarm-particle {
+  position: absolute;
+  left: 0;
+  will-change: transform;
+  user-select: none;
+  pointer-events: none;
+  animation-name: crab-march;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.crab-swarm-inner {
+  display: inline-block;
+  will-change: transform;
+  animation-name: crab-scuttle;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+

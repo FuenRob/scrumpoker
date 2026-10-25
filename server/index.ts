@@ -97,7 +97,7 @@ function calculateHistoryRecord(room: ServerRoom): HistoryItem | null {
     if (!v.vote) continue;
     distribution[v.vote] = (distribution[v.vote] || 0) + 1;
     const num = parseFloat(v.vote);
-    if (!isNaN(num) && v.vote !== '?' && v.vote !== '☕') {
+    if (!isNaN(num) && v.vote !== '?' && v.vote !== '☕' && v.vote !== '🦀') {
       numericVotes.push(num);
     }
   }

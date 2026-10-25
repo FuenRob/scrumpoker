@@ -11,7 +11,7 @@ export function calculateVoteStats(participants: Participant[]): VoteStats {
     if (!p.vote) continue;
     distribution[p.vote] = (distribution[p.vote] || 0) + 1;
     const num = parseFloat(p.vote);
-    if (!isNaN(num) && p.vote !== '?' && p.vote !== '☕') {
+    if (!isNaN(num) && p.vote !== '?' && p.vote !== '☕' && p.vote !== '🦀') {
       numericValues.push(num);
     }
   }

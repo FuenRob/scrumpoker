@@ -22,6 +22,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
   });
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [isSimulated, setIsSimulated] = useState<boolean>(false);
+  const [showCrabSwarm, setShowCrabSwarm] = useState<boolean>(false);
 
   // Refs to always access the latest values without breaking socket listeners
   const socketRef = useRef<Socket | null>(null);
@@ -104,8 +105,16 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         setSelectedCard(self.vote);
       }
 
-      // Check if cards were just revealed for confetti
+      // Check if cards were just revealed for confetti and crab easter egg
       if (!prevRevealedRef.current && state.isRevealed) {
+        // Trigger crab swarm ONLY if any participant voted for crab
+        const hasCrab = state.participants.some(
+          (p) => !p.isSpectator && p.vote === '🦀'
+        );
+        if (hasCrab) {
+          setShowCrabSwarm(true);
+        }
+
         const votes = state.participants.filter((p) => !p.isSpectator && p.vote);
         if (votes.length > 1) {
           const first = votes[0].vote;
@@ -119,6 +128,8 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
             });
           }
         }
+      } else if (!state.isRevealed) {
+        setShowCrabSwarm(false);
       }
       prevRevealedRef.current = state.isRevealed;
     });
@@ -194,6 +205,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     setRoomState(null);
     setSelectedCard(null);
     setIsSimulated(false);
+    setShowCrabSwarm(false);
   }, []);
 
   // Cast vote (with instant optimistic update so votes ALWAYS register immediately)
@@ -241,10 +253,19 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     setRoomState((prev) => {
       if (!prev) return prev;
 
+      const hasCrab =
+        selectedCard === '🦀' ||
+        prev.participants.some((p) => !p.isSpectator && p.vote === '🦀');
+
+      if (hasCrab) {
+        setShowCrabSwarm(true);
+      }
+
       // In simulated mode or offline, record to history
       if (isSimulated || !socketRef.current?.connected) {
         const voters = prev.participants.filter((p) => !p.isSpectator && p.vote !== null);
         const numeric = voters
+          .filter((v) => v.vote !== '?' && v.vote !== '☕' && v.vote !== '🦀')
           .map((v) => parseFloat(v.vote || ''))
           .filter((n) => !isNaN(n));
         const avg =
@@ -274,11 +295,12 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     if (socketRef.current?.connected && !isSimulated) {
       socketRef.current.emit('reveal_votes');
     }
-  }, [isSimulated]);
+  }, [isSimulated, selectedCard]);
 
   // Reset votes
   const resetVotes = useCallback(() => {
     setSelectedCard(null);
+    setShowCrabSwarm(false);
 
     // Instant Optimistic Update
     setRoomState((prev) => {
@@ -476,5 +498,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     saveUserName,
     addDemoBots,
     isSimulated,
+    showCrabSwarm,
+    closeCrabSwarm: () => setShowCrabSwarm(false),
   };
 }

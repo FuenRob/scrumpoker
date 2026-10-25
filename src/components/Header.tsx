@@ -30,6 +30,8 @@ interface HeaderProps {
   onUpdateStory: (story: string) => void;
   onAddBots: () => void;
   isSimulated: boolean;
+  crabMode?: boolean;
+  onToggleCrabMode?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -48,10 +50,23 @@ export const Header: React.FC<HeaderProps> = ({
   onUpdateStory,
   onAddBots,
   isSimulated,
+  crabMode = false,
+  onToggleCrabMode,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [storyInput, setStoryInput] = useState(roomState.storyTitle);
+  const logoClicksRef = React.useRef<number[]>([]);
+
+  const handleLogoBadgeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const now = Date.now();
+    logoClicksRef.current = [...logoClicksRef.current.filter((t) => now - t < 2500), now];
+    if (logoClicksRef.current.length >= 5) {
+      logoClicksRef.current = [];
+      onToggleCrabMode?.();
+    }
+  };
 
   useEffect(() => {
     setStoryInput(roomState.storyTitle);
@@ -80,8 +95,12 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onLeaveRoom}
             title="Volver al inicio"
           >
-            <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-800 dark:text-zinc-200">
-              ♠
+            <div
+              onClick={handleLogoBadgeClick}
+              className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-800 dark:text-zinc-200 select-none hover:scale-105 active:scale-95 transition-transform"
+              title={crabMode ? '🦀 Modo cangrejo activo' : 'Scrum Poker'}
+            >
+              {crabMode ? '🦀' : '♠'}
             </div>
             <span className="font-semibold text-sm tracking-tight text-zinc-900 dark:text-zinc-100 hidden sm:inline">
               Scrum Poker

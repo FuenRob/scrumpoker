@@ -7,6 +7,7 @@ interface CardDeckProps {
   selectedCard: string | null;
   isRevealed: boolean;
   isSpectator: boolean;
+  crabMode?: boolean;
   onSelectCard: (card: string) => void;
   onToggleSpectator: (isSpectator: boolean) => void;
 }
@@ -16,6 +17,7 @@ export const CardDeck: React.FC<CardDeckProps> = ({
   selectedCard,
   isRevealed,
   isSpectator,
+  crabMode = false,
   onSelectCard,
   onToggleSpectator,
 }) => {
@@ -75,14 +77,17 @@ export const CardDeck: React.FC<CardDeckProps> = ({
         {/* Minimalist Cards row */}
         <div className="w-full flex items-center justify-start sm:justify-center gap-2 sm:gap-2.5 overflow-x-auto pb-2 pt-3 px-1">
           {cards.map((card) => {
-            const isSelected = selectedCard === card;
+            const isCrabCard = crabMode && card === '☕';
+            const cardValue = isCrabCard ? '🦀' : card;
+            const displayLabel = isCrabCard ? '🦀' : card;
+            const isSelected = selectedCard === cardValue;
 
             return (
               <button
                 key={card}
                 type="button"
                 disabled={isRevealed}
-                onClick={() => onSelectCard(card)}
+                onClick={() => onSelectCard(cardValue)}
                 className={`relative shrink-0 w-11 h-16 sm:w-13 sm:h-20 rounded-xl flex flex-col items-center justify-between p-1.5 transition-all duration-150 select-none cursor-pointer ${
                   isRevealed
                     ? 'opacity-30 cursor-not-allowed bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
@@ -93,13 +98,21 @@ export const CardDeck: React.FC<CardDeckProps> = ({
               >
                 {/* Top Corner */}
                 <span className="w-full text-left text-[9px] sm:text-[10px] font-medium opacity-70 leading-none">
-                  {card}
+                  {displayLabel}
                 </span>
 
                 {/* Center Value */}
                 <div className="text-base sm:text-lg font-bold tracking-tight">
-                  {card === '☕' ? (
-                    <Coffee className={`w-4 h-4 sm:w-5 sm:h-5 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-amber-600 dark:text-amber-400'}`} />
+                  {isCrabCard ? (
+                    <span className="text-lg sm:text-xl leading-none select-none inline-block transform hover:scale-110 transition-transform">
+                      🦀
+                    </span>
+                  ) : card === '☕' ? (
+                    <Coffee
+                      className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                        isSelected ? 'text-white dark:text-zinc-950' : 'text-amber-600 dark:text-amber-400'
+                      }`}
+                    />
                   ) : card === '?' ? (
                     <HelpCircle className={`w-4 h-4 sm:w-5 sm:h-5 ${isSelected ? 'text-white dark:text-zinc-950' : 'text-zinc-500 dark:text-zinc-400'}`} />
                   ) : (
@@ -109,7 +122,7 @@ export const CardDeck: React.FC<CardDeckProps> = ({
 
                 {/* Bottom Corner */}
                 <span className="w-full text-right text-[9px] sm:text-[10px] font-medium opacity-70 leading-none rotate-180">
-                  {card}
+                  {displayLabel}
                 </span>
 
                 {/* Active dot */}

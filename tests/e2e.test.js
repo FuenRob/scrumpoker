@@ -25,8 +25,8 @@ async function testPokerFlow() {
   });
   console.log('✓ Both participants joined room:', stateAfterJoin.participants.map(p => p.name));
 
-  // Alice votes "5"
-  socket1.emit('cast_vote', { vote: '5' });
+  // Alice votes "🦀" (Crab Easter Egg)
+  socket1.emit('cast_vote', { vote: '🦀' });
 
   // Bob verifies Alice hasVoted: true, but Alice's vote is NULL to Bob (hidden!)
   const stateHidden = await new Promise((resolve) => {
@@ -61,6 +61,9 @@ async function testPokerFlow() {
   const aliceRevealed = stateRevealed.participants.find(p => p.name === 'Alice');
   const bobRevealed = stateRevealed.participants.find(p => p.name === 'Bob');
   console.log(`✓ Revealed votes: Alice=${aliceRevealed.vote}, Bob=${bobRevealed.vote}`);
+  if (aliceRevealed.vote !== '🦀') {
+    throw new Error(`Expected Alice's revealed vote to be '🦀', got '${aliceRevealed.vote}'`);
+  }
 
   // Alice resets votes
   socket1.emit('reset_votes');

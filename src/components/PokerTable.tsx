@@ -161,7 +161,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                               <Lock className="w-3 h-3 text-zinc-400 dark:text-zinc-500 stroke-[1.8]" />
                             </div>
                             <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
-                              {displayVote === '☕' ? (
+                              {displayVote === '🦀' ? (
+                                <span className="text-3xl sm:text-4xl leading-none select-none">🦀</span>
+                              ) : displayVote === '☕' ? (
                                 <Coffee className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                               ) : displayVote === '?' ? (
                                 <HelpCircle className="w-6 h-6 text-zinc-500 dark:text-zinc-400" />
@@ -196,7 +198,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                             {displayVote}
                           </div>
                           <div className="text-2xl sm:text-3xl font-bold text-zinc-950 tracking-tight">
-                            {displayVote === '☕' ? (
+                            {displayVote === '🦀' ? (
+                              <span className="text-3xl sm:text-4xl leading-none select-none">🦀</span>
+                            ) : displayVote === '☕' ? (
                               <Coffee className="w-6 h-6 text-amber-600" />
                             ) : displayVote === '?' ? (
                               <HelpCircle className="w-6 h-6 text-zinc-600" />
