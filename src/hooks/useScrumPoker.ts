@@ -56,9 +56,10 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
   // Initialize socket ONCE on mount
   useEffect(() => {
     const serverUrl =
-      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      import.meta.env.VITE_SERVER_URL ||
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3001'
-        : window.location.origin;
+        : window.location.origin);
 
     const socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
