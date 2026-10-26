@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, History, Copy, Check, Calendar } from 'lucide-react';
+import { CrabIcon } from './CrabIcon';
 import type { HistoryItem } from '../types';
 
 interface HistoryDrawerProps {
@@ -114,7 +115,9 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[10px] text-zinc-600 dark:text-zinc-400"
                     >
                       <span>{v.name}:</span>
-                      <strong className="text-zinc-900 dark:text-zinc-200 font-mono">{v.vote}</strong>
+                      <strong className="text-zinc-900 dark:text-zinc-200 font-mono inline-flex items-center">
+                        {v.vote === '🦀' ? <CrabIcon className="w-3 h-3" /> : v.vote}
+                      </strong>
                     </span>
                   ))}
                 </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Eye, RotateCcw, Crown, CheckCircle2, Coffee, HelpCircle, Loader2, Lock } from 'lucide-react';
+import { CrabIcon } from './CrabIcon';
 import type { RoomState } from '../types';
 
 interface PokerTableProps {
@@ -56,7 +57,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 <h2 className="text-xl sm:text-2xl font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">
                   {allVoted ? '¿Revelar estimaciones?' : 'Votación en curso'}
                 </h2>
-                <p className="text-xs text-zinc-500 font-light max-w-xs">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-xs mb-5 sm:mb-6">
                   {selectedCard
                     ? 'Tu carta está registrada. Pulsa en Revelar cuando todos hayan votado.'
                     : 'Selecciona una carta en la barra inferior para registrar tu estimación.'}
@@ -86,7 +87,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 <h2 className="text-xl sm:text-2xl font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">
                   Resultado de la ronda
                 </h2>
-                <p className="text-xs text-zinc-500 font-light max-w-xs">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-xs mb-5 sm:mb-6">
                   Revisa las estadísticas abajo e inicia una nueva votación cuando queráis.
                 </p>
 
@@ -157,12 +158,18 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                           /* Current Player: Face-up to user with lock */
                           <div className="w-full h-full rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 flex flex-col items-center justify-between p-2 sm:p-2.5 shadow-sm animate-in zoom-in-95 duration-150">
                             <div className="w-full flex justify-between items-center text-[10px] font-bold text-zinc-400 dark:text-zinc-500">
-                              <span>{displayVote}</span>
+                              <span>
+                                {displayVote === '🦀' ? (
+                                  <CrabIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                ) : (
+                                  displayVote
+                                )}
+                              </span>
                               <Lock className="w-3 h-3 text-zinc-400 dark:text-zinc-500 stroke-[1.8]" />
                             </div>
-                            <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                            <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight flex items-center justify-center">
                               {displayVote === '🦀' ? (
-                                <span className="text-3xl sm:text-4xl leading-none select-none">🦀</span>
+                                <CrabIcon className="w-8 h-8 sm:w-10 sm:h-10" />
                               ) : displayVote === '☕' ? (
                                 <Coffee className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                               ) : displayVote === '?' ? (
@@ -172,7 +179,11 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                               )}
                             </div>
                             <div className="w-full flex justify-end text-[10px] font-bold text-zinc-400 dark:text-zinc-500 rotate-180">
-                              {displayVote}
+                              {displayVote === '🦀' ? (
+                                <CrabIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                              ) : (
+                                displayVote
+                              )}
                             </div>
                           </div>
                         ) : (
@@ -195,11 +206,15 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                         /* Revealed for ALL players */
                         <div className="w-full h-full rounded-2xl bg-white text-zinc-950 border border-zinc-200 shadow-sm flex flex-col items-center justify-between p-2 sm:p-2.5 animate-in flip-in-y duration-300">
                           <div className="w-full flex justify-start text-[10px] font-bold text-zinc-500">
-                            {displayVote}
-                          </div>
-                          <div className="text-2xl sm:text-3xl font-bold text-zinc-950 tracking-tight">
                             {displayVote === '🦀' ? (
-                              <span className="text-3xl sm:text-4xl leading-none select-none">🦀</span>
+                              <CrabIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            ) : (
+                              displayVote
+                            )}
+                          </div>
+                          <div className="text-2xl sm:text-3xl font-bold text-zinc-950 tracking-tight flex items-center justify-center">
+                            {displayVote === '🦀' ? (
+                              <CrabIcon className="w-8 h-8 sm:w-10 sm:h-10" />
                             ) : displayVote === '☕' ? (
                               <Coffee className="w-6 h-6 text-amber-600" />
                             ) : displayVote === '?' ? (
@@ -209,7 +224,11 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                             )}
                           </div>
                           <div className="w-full flex justify-end text-[10px] font-bold text-zinc-500 rotate-180">
-                            {displayVote}
+                            {displayVote === '🦀' ? (
+                              <CrabIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            ) : (
+                              displayVote
+                            )}
                           </div>
                         </div>
                       )}

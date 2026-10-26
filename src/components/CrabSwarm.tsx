@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { CrabIcon } from './CrabIcon';
 
 interface CrabSwarmProps {
   active: boolean;
@@ -116,16 +117,16 @@ export const CrabSwarm: React.FC<CrabSwarmProps> = ({
             opacity: p.opacity,
           }}
         >
-          <span
-            className="crab-swarm-inner"
+          <div
+            className="crab-swarm-inner flex items-center justify-center"
             style={{
-              fontSize: `${p.size}px`,
-              lineHeight: 1,
+              width: `${p.size}px`,
+              height: `${p.size}px`,
               animationDuration: `${p.wobbleDuration}s`,
             }}
           >
-            🦀
-          </span>
+            <CrabIcon className="w-full h-full drop-shadow-md" />
+          </div>
         </div>
       ))}
     </div>

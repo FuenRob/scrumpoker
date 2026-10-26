@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { DECKS, type RoomState, type DeckType } from '../types';
 import type { Theme } from '../hooks/useTheme';
+import { CrabIcon } from './CrabIcon';
 
 interface HeaderProps {
   roomState: RoomState;
@@ -100,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-800 dark:text-zinc-200 select-none hover:scale-105 active:scale-95 transition-transform"
               title={crabMode ? '🦀 Modo cangrejo activo' : 'Scrum Poker'}
             >
-              {crabMode ? '🦀' : '♠'}
+              {crabMode ? <CrabIcon className="w-4 h-4" /> : '♠'}
             </div>
             <span className="font-semibold text-sm tracking-tight text-zinc-900 dark:text-zinc-100 hidden sm:inline">
               Scrum Poker

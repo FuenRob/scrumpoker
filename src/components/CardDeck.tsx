@@ -1,5 +1,6 @@
 import React from 'react';
 import { Coffee, HelpCircle, Check, Eye } from 'lucide-react';
+import { CrabIcon } from './CrabIcon';
 import { DECKS, type DeckType } from '../types';
 
 interface CardDeckProps {
@@ -65,8 +66,12 @@ export const CardDeck: React.FC<CardDeckProps> = ({
             <span className="text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 font-medium">
               <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2]" />
               <span>Tu voto:</span>
-              <strong className="px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white font-mono text-xs">
-                {selectedCard}
+              <strong className="px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white font-mono text-xs flex items-center">
+                {selectedCard === '🦀' ? (
+                  <CrabIcon className="w-3.5 h-3.5" />
+                ) : (
+                  selectedCard
+                )}
               </strong>
             </span>
           ) : (
@@ -79,7 +84,6 @@ export const CardDeck: React.FC<CardDeckProps> = ({
           {cards.map((card) => {
             const isCrabCard = crabMode && card === '☕';
             const cardValue = isCrabCard ? '🦀' : card;
-            const displayLabel = isCrabCard ? '🦀' : card;
             const isSelected = selectedCard === cardValue;
 
             return (
@@ -98,15 +102,17 @@ export const CardDeck: React.FC<CardDeckProps> = ({
               >
                 {/* Top Corner */}
                 <span className="w-full text-left text-[9px] sm:text-[10px] font-medium opacity-70 leading-none">
-                  {displayLabel}
+                  {isCrabCard ? (
+                    <CrabIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  ) : (
+                    card
+                  )}
                 </span>
 
                 {/* Center Value */}
                 <div className="text-base sm:text-lg font-bold tracking-tight">
                   {isCrabCard ? (
-                    <span className="text-lg sm:text-xl leading-none select-none inline-block transform hover:scale-110 transition-transform">
-                      🦀
-                    </span>
+                    <CrabIcon className="w-5 h-5 sm:w-6 sm:h-6 transform hover:scale-110 transition-transform" />
                   ) : card === '☕' ? (
                     <Coffee
                       className={`w-4 h-4 sm:w-5 sm:h-5 ${
@@ -121,8 +127,12 @@ export const CardDeck: React.FC<CardDeckProps> = ({
                 </div>
 
                 {/* Bottom Corner */}
-                <span className="w-full text-right text-[9px] sm:text-[10px] font-medium opacity-70 leading-none rotate-180">
-                  {displayLabel}
+                <span className="w-full flex justify-end text-[9px] sm:text-[10px] font-medium opacity-70 leading-none rotate-180">
+                  {isCrabCard ? (
+                    <CrabIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  ) : (
+                    card
+                  )}
                 </span>
 
                 {/* Active dot */}

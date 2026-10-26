@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import {
   ArrowRight,
-  Shield,
-  EyeOff,
-  Zap,
-  BarChart3,
   Layers,
   Sun,
   Moon,
@@ -12,6 +8,7 @@ import {
 import { DECKS, type DeckType } from '../types';
 import type { Theme } from '../hooks/useTheme';
 import { generateRoomId } from '../utils/stats';
+import { CrabIcon } from './CrabIcon';
 
 interface LobbyProps {
   onCreateRoom: (roomId: string, roomName: string, deckType: DeckType) => void;
@@ -104,7 +101,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-800 dark:text-zinc-200 select-none cursor-pointer hover:scale-105 active:scale-95 transition-transform"
             title={crabMode ? '🦀 Modo cangrejo activo' : 'Scrum Poker'}
           >
-            {crabMode ? '🦀' : '♠'}
+            {crabMode ? <CrabIcon className="w-5 h-5" /> : '♠'}
           </div>
           <span className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
             Scrum Poker
@@ -279,45 +276,20 @@ export const Lobby: React.FC<LobbyProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Minimalist Feature Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-12 max-w-3xl mx-auto w-full">
-          <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white/50 dark:bg-transparent space-y-1">
-            <Shield className="w-4 h-4 text-zinc-500 dark:text-zinc-400 stroke-[1.5] mb-1" />
-            <h4 className="text-xs font-medium text-zinc-800 dark:text-zinc-200">Privado</h4>
-            <p className="text-[11px] text-zinc-500 font-light leading-relaxed">
-              Solo accesible con el enlace directo generado.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white/50 dark:bg-transparent space-y-1">
-            <EyeOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400 stroke-[1.5] mb-1" />
-            <h4 className="text-xs font-medium text-zinc-800 dark:text-zinc-200">Votos Ocultos</h4>
-            <p className="text-[11px] text-zinc-500 font-light leading-relaxed">
-              Cartas cubiertas hasta la revelación grupal.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white/50 dark:bg-transparent space-y-1">
-            <Zap className="w-4 h-4 text-zinc-500 dark:text-zinc-400 stroke-[1.5] mb-1" />
-            <h4 className="text-xs font-medium text-zinc-800 dark:text-zinc-200">Tiempo Real</h4>
-            <p className="text-[11px] text-zinc-500 font-light leading-relaxed">
-              Sincronización instantánea con WebSockets.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white/50 dark:bg-transparent space-y-1">
-            <BarChart3 className="w-4 h-4 text-zinc-500 dark:text-zinc-400 stroke-[1.5] mb-1" />
-            <h4 className="text-xs font-medium text-zinc-800 dark:text-zinc-200">Métricas</h4>
-            <p className="text-[11px] text-zinc-500 font-light leading-relaxed">
-              Promedio, mediana y nivel de acuerdo.
-            </p>
-          </div>
-        </div>
       </main>
 
-      <footer className="max-w-4xl w-full mx-auto px-6 py-6 text-center text-xs text-zinc-400 dark:text-zinc-600 border-t border-zinc-200 dark:border-zinc-900 font-light">
-        Scrum Poker minimalista • React & pnpm
+      <footer className="max-w-4xl w-full mx-auto px-6 py-6 text-center text-xs text-zinc-500 dark:text-zinc-500 border-t border-zinc-200 dark:border-zinc-900 font-light flex items-center justify-center gap-1 flex-wrap">
+        <span>Hecho con</span>
+        <span className="text-rose-500 mx-0.5 inline-block select-none" role="img" aria-label="corazón">❤️</span>
+        <span>por</span>
+        <a
+          href="https://github.com/FuenRob"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition-colors underline-offset-2 hover:underline"
+        >
+          Roberto Morais (FuenRob)
+        </a>
       </footer>
     </div>
   );

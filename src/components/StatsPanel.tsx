@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, AlertCircle, TrendingUp, BarChart2, Award } from 'lucide-react';
+import { CrabIcon } from './CrabIcon';
 import type { Participant, VoteStats } from '../types';
 import { calculateVoteStats } from '../utils/stats';
 
@@ -107,12 +108,12 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ participants }) => {
                 <div key={vote} className="space-y-1">
                   <div className="flex items-center justify-between text-xs font-light text-zinc-700 dark:text-zinc-300">
                     <span className="flex items-center gap-2">
-                      <span className={`w-6 text-center py-0.5 rounded font-mono text-[11px] ${
+                      <span className={`w-6 text-center py-0.5 rounded font-mono text-[11px] flex items-center justify-center ${
                         isMode
                           ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold'
                           : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800'
                       }`}>
-                        {vote}
+                        {vote === '🦀' ? <CrabIcon className="w-3.5 h-3.5" /> : vote}
                       </span>
                       <span>
                         {count} {count === 1 ? 'voto' : 'votos'}
