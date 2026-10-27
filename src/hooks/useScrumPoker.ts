@@ -125,7 +125,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       if (socketRef.current?.connected) return;
 
       p2pManagerRef.current?.destroy();
-      p2pManagerRef.current = new P2PRoomManager({
+      const manager = new P2PRoomManager({
         roomId: targetRoomId,
         roomName,
         userId: getStoredUserId(),
@@ -137,10 +137,17 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         onStateChange: (state: RoomState) => {
           setRoomState(state);
           const self = state.participants.find(
-            (p) => p.id === p2pManagerRef.current?.getSocketId() || p.name === userNameRef.current
+            (p) =>
+              (p2pManagerRef.current && p.id === p2pManagerRef.current.getSocketId()) ||
+              p.id === 'user-self' ||
+              (userNameRef.current && p.name.trim().toLowerCase() === userNameRef.current.trim().toLowerCase())
           );
           if (self) {
-            setSelectedCard(self.vote);
+            if (self.vote !== null) {
+              setSelectedCard(self.vote);
+            } else if (!self.hasVoted) {
+              setSelectedCard(null);
+            }
           }
           handleRevealSideEffects(state);
         },
@@ -153,6 +160,8 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
           }
         },
       });
+      p2pManagerRef.current = manager;
+      setSocketId(manager.getSocketId());
     },
     [handleRevealSideEffects]
   );
@@ -219,10 +228,17 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       setRoomState(state);
 
       const self = state.participants.find(
-        (p) => p.id === socket.id || p.name === userNameRef.current
+        (p) =>
+          (socket.id && p.id === socket.id) ||
+          p.id === 'user-self' ||
+          (userNameRef.current && p.name.trim().toLowerCase() === userNameRef.current.trim().toLowerCase())
       );
       if (self) {
-        setSelectedCard(self.vote);
+        if (self.vote !== null) {
+          setSelectedCard(self.vote);
+        } else if (!self.hasVoted) {
+          setSelectedCard(null);
+        }
       }
 
       handleRevealSideEffects(state);
@@ -236,7 +252,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
   // Join Room
   const joinRoom = useCallback(
-    (targetRoomId: string, roomName?: string, deckType?: DeckType) => {
+    (targetRoomId: string, roomName?: string, deckType?: DeckType, userNameOverride?: string) => {
       const cleanId = targetRoomId.trim().toLowerCase();
       setRoomId(cleanId);
       roomIdRef.current = cleanId;
@@ -254,6 +270,9 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       }
 
       const currentSocketId = socketRef.current?.id || p2pManagerRef.current?.getSocketId() || 'user-self';
+      const effectiveName = userNameOverride || userNameRef.current || userName || 'Tú';
+      const effectiveAvatar = avatarColorRef.current || avatarColor;
+      const effectiveSpectator = isSpectatorRef.current ?? isSpectator;
 
       // Provide immediate optimistic room state so poker table renders instantly
       setRoomState((prev) => {
@@ -267,9 +286,9 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
           participants: [
             {
               id: currentSocketId,
-              name: userName || 'Tú',
-              avatarColor,
-              isSpectator,
+              name: effectiveName,
+              avatarColor: effectiveAvatar,
+              isSpectator: effectiveSpectator,
               hasVoted: false,
               vote: null,
               isHost: true,
@@ -286,9 +305,9 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
           roomId: cleanId,
           roomName,
           userId: getStoredUserId(),
-          name: userName || 'Tú',
-          avatarColor,
-          isSpectator,
+          name: effectiveName,
+          avatarColor: effectiveAvatar,
+          isSpectator: effectiveSpectator,
           deckType,
         });
         socketJoinedRoomRef.current = true;
@@ -337,7 +356,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
             const isMe =
               (currentSocketId && p.id === currentSocketId) ||
               p.id === 'user-self' ||
-              p.name === userNameRef.current;
+              (userNameRef.current && p.name.trim().toLowerCase() === userNameRef.current.trim().toLowerCase());
             if (isMe) {
               return {
                 ...p,
@@ -503,7 +522,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
             const isMe =
               (currentSocketId && p.id === currentSocketId) ||
               p.id === 'user-self' ||
-              p.name === userNameRef.current;
+              (userNameRef.current && p.name.trim().toLowerCase() === userNameRef.current.trim().toLowerCase());
             if (isMe) {
               return { ...p, isSpectator: spectator, vote: spectator ? null : p.vote };
             }
@@ -554,7 +573,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
             const isMe =
               (currentSocketId && p.id === currentSocketId) ||
               p.id === 'user-self' ||
-              p.name === userNameRef.current;
+              (userNameRef.current && p.name.trim().toLowerCase() === userNameRef.current.trim().toLowerCase());
             if (isMe) {
               return {
                 ...p,

@@ -165,7 +165,7 @@ export function App() {
     const targetRoom = urlRoomId || roomId;
     if (targetRoom) {
       updateUrl(targetRoom);
-      joinRoom(targetRoom);
+      joinRoom(targetRoom, undefined, undefined, name);
     }
   };
 

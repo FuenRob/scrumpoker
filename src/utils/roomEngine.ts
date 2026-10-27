@@ -184,7 +184,15 @@ export function removeUserFromRoom(room: InternalRoom, socketId: string): void {
 
 export function castVoteInRoom(room: InternalRoom, socketId: string, vote: string | null): boolean {
   if (room.isRevealed) return false;
-  const user = room.users.get(socketId);
+  let user = room.users.get(socketId);
+  if (!user) {
+    for (const u of room.users.values()) {
+      if (u.socketId === socketId || (u.userId && u.userId === socketId)) {
+        user = u;
+        break;
+      }
+    }
+  }
   if (!user || user.isSpectator) return false;
   user.vote = vote;
   return true;
@@ -227,7 +235,15 @@ export function toggleSpectatorInRoom(
   socketId: string,
   isSpectator: boolean
 ): void {
-  const user = room.users.get(socketId);
+  let user = room.users.get(socketId);
+  if (!user) {
+    for (const u of room.users.values()) {
+      if (u.socketId === socketId || (u.userId && u.userId === socketId)) {
+        user = u;
+        break;
+      }
+    }
+  }
   if (!user) return;
   user.isSpectator = isSpectator;
   if (isSpectator) {
@@ -241,7 +257,15 @@ export function changeNameInRoom(
   name: string,
   avatarColor?: string
 ): void {
-  const user = room.users.get(socketId);
+  let user = room.users.get(socketId);
+  if (!user) {
+    for (const u of room.users.values()) {
+      if (u.socketId === socketId || (u.userId && u.userId === socketId)) {
+        user = u;
+        break;
+      }
+    }
+  }
   if (!user) return;
   user.name = name.trim() || 'Anónimo';
   if (avatarColor) {

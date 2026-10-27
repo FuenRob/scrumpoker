@@ -68,6 +68,7 @@ export class P2PRoomManager {
   private isHost = false;
   private internalRoom: InternalRoom | null = null;
   private connections = new Map<string, DataConnection>();
+  private peerToSocketId = new Map<string, string>();
   private hostConnection: DataConnection | null = null;
   private broadcastChannel: BroadcastChannel | null = null;
   private localSocketId: string;
@@ -243,12 +244,6 @@ export class P2PRoomManager {
   private setupHostGuestConnection(conn: DataConnection) {
     conn.on('open', () => {
       this.connections.set(conn.peer, conn);
-
-      // Send initial room state to newly connected peer
-      if (this.internalRoom) {
-        const state = sanitizeRoomState(this.internalRoom, conn.peer);
-        conn.send({ type: 'room_state', payload: state });
-      }
     });
 
     conn.on('data', (data) => {
@@ -257,9 +252,11 @@ export class P2PRoomManager {
     });
 
     conn.on('close', () => {
+      const socketId = this.peerToSocketId.get(conn.peer) || conn.peer;
       this.connections.delete(conn.peer);
+      this.peerToSocketId.delete(conn.peer);
       if (this.internalRoom) {
-        removeUserFromRoom(this.internalRoom, conn.peer);
+        removeUserFromRoom(this.internalRoom, socketId);
         this.broadcastHostState();
       }
     });
@@ -323,7 +320,8 @@ export class P2PRoomManager {
     // Send to WebRTC connections
     this.connections.forEach((conn, peerId) => {
       if (conn.open) {
-        const peerState = sanitizeRoomState(this.internalRoom!, peerId);
+        const targetSocketId = this.peerToSocketId.get(peerId) || peerId;
+        const peerState = sanitizeRoomState(this.internalRoom!, targetSocketId);
         conn.send({ type: 'room_state', payload: peerState });
       }
     });
@@ -331,7 +329,14 @@ export class P2PRoomManager {
     // Mirror to BroadcastChannel
     if (this.broadcastChannel) {
       try {
-        this.broadcastChannel.postMessage({ type: 'room_state', payload: selfState });
+        const serializedUsers = Array.from(this.internalRoom.users.entries());
+        this.broadcastChannel.postMessage({
+          type: 'internal_room_sync',
+          payload: {
+            ...this.internalRoom,
+            users: serializedUsers,
+          },
+        });
       } catch {
         // Ignore
       }
@@ -348,6 +353,7 @@ export class P2PRoomManager {
       switch (msg.type) {
         case 'join_room': {
           const p = msg.payload;
+          this.peerToSocketId.set(senderPeerId, senderId);
           addUserToRoom(this.internalRoom, {
             socketId: senderId,
             userId: p.userId,
@@ -407,8 +413,18 @@ export class P2PRoomManager {
           break;
         }
       }
-    } else if (!this.isHost && msg.type === 'room_state') {
-      this.onStateChange(msg.payload);
+    } else if (!this.isHost) {
+      if ((msg as any).type === 'internal_room_sync') {
+        const data = (msg as any).payload;
+        const reconstructedRoom: InternalRoom = {
+          ...data,
+          users: new Map(data.users),
+        };
+        const myState = sanitizeRoomState(reconstructedRoom, this.localSocketId);
+        this.onStateChange(myState);
+      } else if (msg.type === 'room_state') {
+        this.onStateChange(msg.payload);
+      }
     }
   }
 

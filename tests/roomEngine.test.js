@@ -105,4 +105,36 @@ if (singleBob.id !== 'user-2-reloaded') throw new Error('Expected socket ID to b
 if (singleBob.vote !== '8') throw new Error(`Expected vote '8' to be preserved across reload, got ${singleBob.vote}`);
 console.log('✓ Anti-duplication & vote preservation on reload verified');
 
+// 9. Guest joins shared room and votes - guest view must show vote to guest, secret to host
+const sharedRoom = createRoom('shared-sprint', 'Sprint Planning', 'modified-fibonacci');
+addUserToRoom(sharedRoom, {
+  socketId: 'host-socket-1',
+  name: 'Host Alice',
+  avatarColor: '#ec4899',
+  isSpectator: false,
+});
+// Guest joins via shared link
+addUserToRoom(sharedRoom, {
+  socketId: 'guest-socket-2',
+  userId: 'usr-guest-2',
+  name: 'Guest Bob',
+  avatarColor: '#3b82f6',
+  isSpectator: false,
+});
+// Guest votes '13'
+castVoteInRoom(sharedRoom, 'guest-socket-2', '13');
+
+// Check guest's view: guest MUST be able to see their own vote '13'!
+const guestView = sanitizeRoomState(sharedRoom, 'guest-socket-2');
+const guestSelf = guestView.participants.find((p) => p.id === 'guest-socket-2');
+if (!guestSelf.hasVoted) throw new Error('Guest should have hasVoted=true');
+if (guestSelf.vote !== '13') throw new Error(`Guest should see their own vote '13', got: ${guestSelf.vote}`);
+
+// Check host's view: host should know guest voted, but vote value must be hidden (null)
+const hostView = sanitizeRoomState(sharedRoom, 'host-socket-1');
+const guestInHostView = hostView.participants.find((p) => p.id === 'guest-socket-2');
+if (!guestInHostView.hasVoted) throw new Error('Host should see guest hasVoted=true');
+if (guestInHostView.vote !== null) throw new Error(`Guest vote should be hidden from host before reveal, got: ${guestInHostView.vote}`);
+console.log('✓ Guest vote visibility to self and secrecy to host verified');
+
 console.log('--- ALL ROOM ENGINE TESTS PASSED! ---');

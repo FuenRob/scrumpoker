@@ -110,10 +110,12 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 const isHost = participant.id === roomState.hostId;
                 const isCurrentPlayer =
                   (currentUserId && participant.id === currentUserId) ||
-                  participant.name === currentUserName ||
-                  participant.id === 'user-self';
+                  participant.id === 'user-self' ||
+                  (currentUserName &&
+                    participant.name.trim().toLowerCase() === currentUserName.trim().toLowerCase());
 
-                const displayVote = participant.vote || (isCurrentPlayer ? selectedCard : null);
+                const displayVote =
+                  (isCurrentPlayer && selectedCard !== null) ? selectedCard : participant.vote;
                 const hasVoted = participant.hasVoted || (isCurrentPlayer && !!selectedCard);
 
                 return (
