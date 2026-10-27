@@ -82,4 +82,27 @@ removeUserFromRoom(room, 'user-1');
 if (room.hostSocketId !== 'user-2') throw new Error('Expected host to migrate to Bob (user-2)');
 console.log('✓ Host migration verified');
 
+// 8. Anti-duplication on page reload / re-join
+// Bob casts a vote '8'
+castVoteInRoom(room, 'user-2', '8');
+
+// Bob reloads page: connects with new socketId 'user-2-reloaded', same name 'Bob'
+addUserToRoom(room, {
+  socketId: 'user-2-reloaded',
+  userId: 'usr-bob-123',
+  name: 'Bob',
+  avatarColor: '#3b82f6',
+  isSpectator: false,
+});
+
+const bobReloadedView = sanitizeRoomState(room, 'user-2-reloaded');
+if (bobReloadedView.participants.length !== 1) {
+  throw new Error(`Expected exactly 1 participant after Bob reloaded, got ${bobReloadedView.participants.length}`);
+}
+const singleBob = bobReloadedView.participants[0];
+if (singleBob.name !== 'Bob') throw new Error(`Expected participant to be Bob, got ${singleBob.name}`);
+if (singleBob.id !== 'user-2-reloaded') throw new Error('Expected socket ID to be updated to new socket');
+if (singleBob.vote !== '8') throw new Error(`Expected vote '8' to be preserved across reload, got ${singleBob.vote}`);
+console.log('✓ Anti-duplication & vote preservation on reload verified');
+
 console.log('--- ALL ROOM ENGINE TESTS PASSED! ---');

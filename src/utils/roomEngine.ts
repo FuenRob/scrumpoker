@@ -2,6 +2,7 @@ import type { DeckType, HistoryItem, RoomState } from '../types';
 
 export interface InternalUser {
   socketId: string;
+  userId?: string;
   name: string;
   avatarColor: string;
   isSpectator: boolean;
@@ -39,9 +40,19 @@ export function createRoom(
 }
 
 export function sanitizeRoomState(room: InternalRoom, recipientSocketId: string): RoomState {
-  const participants = Array.from(room.users.values()).map((user) => {
+  const seenUserKeys = new Set<string>();
+  const participants = [];
+
+  for (const user of room.users.values()) {
+    // Deduplicate by userId or lowercase name
+    const uniqueKey = (user.userId || user.name).trim().toLowerCase();
+    if (seenUserKeys.has(uniqueKey)) {
+      continue;
+    }
+    seenUserKeys.add(uniqueKey);
+
     const isSelf = user.socketId === recipientSocketId;
-    return {
+    participants.push({
       id: user.socketId,
       name: user.name,
       avatarColor: user.avatarColor,
@@ -49,8 +60,8 @@ export function sanitizeRoomState(room: InternalRoom, recipientSocketId: string)
       hasVoted: user.vote !== null,
       vote: room.isRevealed || isSelf ? user.vote : null,
       isHost: user.socketId === room.hostSocketId,
-    };
-  });
+    });
+  }
 
   return {
     roomId: room.id,
@@ -106,21 +117,56 @@ export function addUserToRoom(
   room: InternalRoom,
   user: {
     socketId: string;
+    userId?: string;
     name: string;
     avatarColor?: string;
     isSpectator?: boolean;
     vote?: string | null;
   }
 ): void {
+  const cleanName = user.name.trim() || 'Anónimo';
+  const cleanNameLower = cleanName.toLowerCase();
+
+  // Find if a participant with the same userId OR the same name already exists
+  let existingKey: string | null = null;
+  for (const [key, existing] of room.users.entries()) {
+    const isSameUserId = !!(user.userId && existing.userId && user.userId === existing.userId);
+    const isSameName = existing.name.trim().toLowerCase() === cleanNameLower;
+    const isSameSocket = key === user.socketId;
+
+    if (isSameUserId || isSameName || isSameSocket) {
+      existingKey = key;
+      break;
+    }
+  }
+
+  // Preserve existing vote and avatar if re-joining on refresh
+  const prevUser = existingKey ? room.users.get(existingKey) : null;
+  const vote = user.vote !== undefined ? user.vote : (prevUser?.vote ?? null);
+  const avatarColor = user.avatarColor || prevUser?.avatarColor || '#6366f1';
+  const isSpectator =
+    user.isSpectator !== undefined ? !!user.isSpectator : (prevUser?.isSpectator ?? false);
+
+  // If the socketId has changed (e.g. page refresh), remove the old entry
+  if (existingKey && existingKey !== user.socketId) {
+    room.users.delete(existingKey);
+  }
+
   room.users.set(user.socketId, {
     socketId: user.socketId,
-    name: user.name.trim() || 'Anónimo',
-    avatarColor: user.avatarColor || '#6366f1',
-    isSpectator: !!user.isSpectator,
-    vote: user.vote !== undefined ? user.vote : null,
+    userId: user.userId || prevUser?.userId,
+    name: cleanName,
+    avatarColor,
+    isSpectator,
+    vote,
   });
 
-  if (!room.hostSocketId || !room.users.has(room.hostSocketId)) {
+  // Preserve host role if the previous user was host
+  if (
+    !room.hostSocketId ||
+    existingKey === room.hostSocketId ||
+    !room.users.has(room.hostSocketId)
+  ) {
     room.hostSocketId = user.socketId;
   }
 }

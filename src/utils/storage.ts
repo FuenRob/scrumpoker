@@ -1,10 +1,27 @@
 export const STORAGE_KEYS = {
+  USER_ID: 'scrumpoker_user_id',
   USERNAME: 'scrumpoker_username',
   AVATAR_COLOR: 'scrumpoker_avatar_color',
   IS_SPECTATOR: 'scrumpoker_is_spectator',
   RECENT_ROOMS: 'scrumpoker_recent_rooms',
   CRAB_MODE: 'scrumpoker_crab_mode',
 };
+
+/**
+ * Unique persistent user ID for session identification across page refreshes.
+ */
+export function getStoredUserId(): string {
+  try {
+    let id = localStorage.getItem(STORAGE_KEYS.USER_ID);
+    if (!id) {
+      id = 'usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+      localStorage.setItem(STORAGE_KEYS.USER_ID, id);
+    }
+    return id;
+  } catch {
+    return 'usr_' + Date.now().toString(36);
+  }
+}
 
 /**
  * Persistencia mediante localStorage:

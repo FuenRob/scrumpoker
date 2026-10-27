@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { RoomState, DeckType, Participant, HistoryItem } from '../types';
 import confetti from 'canvas-confetti';
-import { STORAGE_KEYS, getStoredUserName, setStoredUserName } from '../utils/storage';
+import { STORAGE_KEYS, getStoredUserName, setStoredUserName, getStoredUserId } from '../utils/storage';
 import { P2PRoomManager } from '../utils/p2pRoom';
 
 interface UseScrumPokerProps {
@@ -128,6 +128,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       p2pManagerRef.current = new P2PRoomManager({
         roomId: targetRoomId,
         roomName,
+        userId: getStoredUserId(),
         userName: userNameRef.current || 'Tú',
         avatarColor: avatarColorRef.current,
         isSpectator: isSpectatorRef.current,
@@ -192,6 +193,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       if (roomIdRef.current && userNameRef.current) {
         socket.emit('join_room', {
           roomId: roomIdRef.current,
+          userId: getStoredUserId(),
           name: userNameRef.current,
           avatarColor: avatarColorRef.current,
           isSpectator: isSpectatorRef.current,
@@ -283,6 +285,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         socketRef.current.emit('join_room', {
           roomId: cleanId,
           roomName,
+          userId: getStoredUserId(),
           name: userName || 'Tú',
           avatarColor,
           isSpectator,
@@ -571,6 +574,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         } else if (roomIdRef.current) {
           socketRef.current.emit('join_room', {
             roomId: roomIdRef.current,
+            userId: getStoredUserId(),
             name: cleanName,
             avatarColor: color || avatarColorRef.current,
             isSpectator: spectator !== undefined ? spectator : isSpectatorRef.current,

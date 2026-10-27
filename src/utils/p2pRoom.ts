@@ -21,6 +21,7 @@ export type P2PMessage =
       payload: {
         roomId: string;
         roomName?: string;
+        userId?: string;
         name: string;
         avatarColor?: string;
         isSpectator?: boolean;
@@ -41,6 +42,7 @@ export type P2PMessage =
 export interface P2PRoomOptions {
   roomId: string;
   roomName?: string;
+  userId?: string;
   userName: string;
   avatarColor: string;
   isSpectator: boolean;
@@ -53,6 +55,7 @@ export interface P2PRoomOptions {
 export class P2PRoomManager {
   private cleanRoomId: string;
   private roomName?: string;
+  private userId: string;
   private userName: string;
   private avatarColor: string;
   private isSpectator: boolean;
@@ -69,10 +72,16 @@ export class P2PRoomManager {
   private broadcastChannel: BroadcastChannel | null = null;
   private localSocketId: string;
   private isDestroyed = false;
+  private hostRetryTimer: any = null;
+
+  private handleBeforeUnload = () => {
+    this.destroy();
+  };
 
   constructor(options: P2PRoomOptions) {
     this.cleanRoomId = options.roomId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     this.roomName = options.roomName;
+    this.userId = options.userId || `u_${Math.random().toString(36).substring(2, 9)}`;
     this.userName = options.userName;
     this.avatarColor = options.avatarColor;
     this.isSpectator = options.isSpectator;
@@ -82,6 +91,10 @@ export class P2PRoomManager {
     this.onStatusChange = options.onStatusChange;
 
     this.localSocketId = `p2p_${Math.random().toString(36).substring(2, 9)}`;
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', this.handleBeforeUnload);
+    }
 
     this.initBroadcastChannel();
     this.startP2P();
@@ -151,6 +164,7 @@ export class P2PRoomManager {
 
         addUserToRoom(this.internalRoom, {
           socketId: this.localSocketId,
+          userId: this.userId,
           name: this.userName,
           avatarColor: this.avatarColor,
           isSpectator: this.isSpectator,
@@ -166,11 +180,20 @@ export class P2PRoomManager {
 
       this.peer.on('error', (err: any) => {
         if (this.isDestroyed) return;
-        // If ID is already taken, someone else is host: fall back to guest!
+        // If ID is already taken, check if we should retry briefly (e.g. host page reloaded) or connect as guest
         if (err.type === 'unavailable-id') {
           this.peer?.destroy();
           this.peer = null;
-          this.connectAsGuest();
+          if (this.isHostIntent && !this.hostRetryTimer) {
+            this.hostRetryTimer = setTimeout(() => {
+              this.hostRetryTimer = null;
+              if (!this.isDestroyed && !this.peer) {
+                this.tryBecomeHost();
+              }
+            }, 600);
+          } else {
+            this.connectAsGuest();
+          }
         } else {
           this.onStatusChange('disconnected');
         }
@@ -255,6 +278,7 @@ export class P2PRoomManager {
         payload: {
           roomId: this.cleanRoomId,
           roomName: this.roomName,
+          userId: this.userId,
           name: this.userName,
           avatarColor: this.avatarColor,
           isSpectator: this.isSpectator,
@@ -326,6 +350,7 @@ export class P2PRoomManager {
           const p = msg.payload;
           addUserToRoom(this.internalRoom, {
             socketId: senderId,
+            userId: p.userId,
             name: p.name,
             avatarColor: p.avatarColor,
             isSpectator: p.isSpectator,
@@ -431,6 +456,13 @@ export class P2PRoomManager {
 
   public destroy() {
     this.isDestroyed = true;
+    if (this.hostRetryTimer) {
+      clearTimeout(this.hostRetryTimer);
+      this.hostRetryTimer = null;
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    }
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.close();

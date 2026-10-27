@@ -24,6 +24,7 @@ type DeckType = 'modified-fibonacci' | 'fibonacci' | 'tshirt' | 'powers-of-2';
 
 interface ServerUser {
   socketId: string;
+  userId?: string;
   name: string;
   avatarColor: string;
   isSpectator: boolean;
@@ -54,9 +55,18 @@ const rooms = new Map<string, ServerRoom>();
 const socketToRoom = new Map<string, string>();
 
 function sanitizeRoomState(room: ServerRoom, recipientSocketId: string) {
-  const participants = Array.from(room.users.values()).map((user) => {
+  const seenUserKeys = new Set<string>();
+  const participants = [];
+
+  for (const user of room.users.values()) {
+    const uniqueKey = (user.userId || user.name).trim().toLowerCase();
+    if (seenUserKeys.has(uniqueKey)) {
+      continue;
+    }
+    seenUserKeys.add(uniqueKey);
+
     const isSelf = user.socketId === recipientSocketId;
-    return {
+    participants.push({
       id: user.socketId,
       name: user.name,
       avatarColor: user.avatarColor,
@@ -64,8 +74,8 @@ function sanitizeRoomState(room: ServerRoom, recipientSocketId: string) {
       hasVoted: user.vote !== null,
       vote: room.isRevealed || isSelf ? user.vote : null,
       isHost: user.socketId === room.hostSocketId,
-    };
-  });
+    });
+  }
 
   return {
     roomId: room.id,
@@ -131,6 +141,7 @@ io.on('connection', (socket: Socket) => {
     ({
       roomId,
       roomName,
+      userId,
       name,
       avatarColor,
       isSpectator = false,
@@ -138,6 +149,7 @@ io.on('connection', (socket: Socket) => {
     }: {
       roomId: string;
       roomName?: string;
+      userId?: string;
       name: string;
       avatarColor?: string;
       isSpectator?: boolean;
@@ -163,16 +175,42 @@ io.on('connection', (socket: Socket) => {
       socket.join(cleanRoomId);
       socketToRoom.set(socket.id, cleanRoomId);
 
+      const cleanName = name.trim() || 'Anónimo';
+      const cleanNameLower = cleanName.toLowerCase();
+
+      // Look for existing participant with same userId, same name, or same socket
+      let existingSocketId: string | null = null;
+      for (const [sId, u] of room.users.entries()) {
+        const isSame =
+          (userId && u.userId && u.userId === userId) ||
+          u.name.trim().toLowerCase() === cleanNameLower ||
+          sId === socket.id;
+        if (isSame) {
+          existingSocketId = sId;
+          break;
+        }
+      }
+
+      const prevUser = existingSocketId ? room.users.get(existingSocketId) : null;
+      if (existingSocketId && existingSocketId !== socket.id) {
+        room.users.delete(existingSocketId);
+        socketToRoom.delete(existingSocketId);
+      }
+
       room.users.set(socket.id, {
         socketId: socket.id,
-        name: name.trim() || 'Anónimo',
-        avatarColor: avatarColor || '#6366f1',
-        isSpectator: !!isSpectator,
-        vote: null,
+        userId: userId || prevUser?.userId,
+        name: cleanName,
+        avatarColor: avatarColor || prevUser?.avatarColor || '#6366f1',
+        isSpectator: isSpectator !== undefined ? !!isSpectator : (prevUser?.isSpectator ?? false),
+        vote: prevUser?.vote ?? null,
       });
 
-      // If no host exists or previous host left, assign to current
-      if (!room.users.has(room.hostSocketId)) {
+      // If no host exists, previous host left, or rejoining user was host
+      if (
+        !room.users.has(room.hostSocketId) ||
+        existingSocketId === room.hostSocketId
+      ) {
         room.hostSocketId = socket.id;
       }
 
