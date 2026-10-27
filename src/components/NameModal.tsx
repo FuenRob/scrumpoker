@@ -8,6 +8,7 @@ interface NameModalProps {
   initialColor?: string;
   initialIsSpectator?: boolean;
   isClosable?: boolean;
+  targetRoomId?: string | null;
   onSave: (name: string, color: string, isSpectator: boolean) => void;
   onClose?: () => void;
 }
@@ -18,6 +19,7 @@ export const NameModal: React.FC<NameModalProps> = ({
   initialColor = AVATAR_COLORS[5],
   initialIsSpectator = false,
   isClosable = false,
+  targetRoomId,
   onSave,
   onClose,
 }) => {
@@ -29,6 +31,7 @@ export const NameModal: React.FC<NameModalProps> = ({
   if (!isOpen) return null;
 
   const isFirstTime = !initialName;
+  const isInvited = !!targetRoomId;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,12 +52,26 @@ export const NameModal: React.FC<NameModalProps> = ({
       <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in-95 duration-150">
         <div className="mb-5">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            {isFirstTime ? '¿Cómo te llamas?' : 'Configura tu perfil'}
+            {isInvited
+              ? '¡Te han invitado a una sala!'
+              : isFirstTime
+              ? '¿Cómo te llamas?'
+              : 'Configura tu perfil'}
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light mt-0.5">
-            {isFirstTime
-              ? 'Introduce tu nombre para identificarte en las estimaciones. Se guardará para recordarte en próximas visitas.'
-              : 'Tu equipo verá tu nombre y color durante la estimación.'}
+            {isInvited ? (
+              <>
+                Introduce tu nombre para unirte a la sala{' '}
+                <span className="font-mono font-medium text-zinc-900 dark:text-zinc-200">
+                  #{targetRoomId}
+                </span>{' '}
+                y empezar a estimar con tu equipo.
+              </>
+            ) : isFirstTime ? (
+              'Introduce tu nombre para identificarte en las estimaciones. Se guardará para recordarte en próximas visitas.'
+            ) : (
+              'Tu equipo verá tu nombre y color durante la estimación.'
+            )}
           </p>
         </div>
 
@@ -155,7 +172,11 @@ export const NameModal: React.FC<NameModalProps> = ({
               type="submit"
               className="flex-1 py-2.5 px-4 rounded-xl font-medium text-xs sm:text-sm text-white dark:text-zinc-950 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 active:scale-[0.99] transition-all cursor-pointer shadow-sm"
             >
-              {isFirstTime ? 'Guardar y empezar' : 'Guardar cambios'}
+              {isInvited
+                ? 'Unirme a la sala'
+                : isFirstTime
+                ? 'Guardar y empezar'
+                : 'Guardar cambios'}
             </button>
           </div>
         </form>

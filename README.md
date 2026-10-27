@@ -50,9 +50,17 @@ Construida con **ReactJS**, **Tailwind CSS**, **Node.js + Socket.IO**, gestionad
 
 - **Frontend**: [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS v4](https://tailwindcss.com/)
 - **Iconos y Efectos**: [lucide-react](https://lucide.dev/), [canvas-confetti](https://www.npmjs.com/package/canvas-confetti)
-- **Backend / Real-time**: [Node.js](https://nodejs.org/), [Express](https://expressjs.com/), [Socket.IO](https://socket.io/)
+- **Backend / Real-time**: [Node.js](https://nodejs.org/), [Express](https://expressjs.com/), [Socket.IO](https://socket.io/) y soporte P2P serverless con [WebRTC / PeerJS](https://peerjs.com/)
 - **Herramienta de Construcción**: [Vite](https://vitejs.dev/)
 - **Gestor de Paquetes**: [pnpm](https://pnpm.io/)
+
+---
+
+## 🌐 Conectividad Dual: WebSockets & WebRTC P2P
+
+Scrum Poker cuenta con una arquitectura de sincronización híbrida:
+1. **Modo Servidor (Socket.IO)**: Al ejecutarse en local (`pnpm dev` o `pnpm start`) o en un servidor dedicado (configurado vía variable de entorno `VITE_SERVER_URL`), se conecta al servidor Node.js central.
+2. **Modo P2P Serverless (WebRTC)**: En despliegues estáticos como **GitHub Pages** (donde no existe un backend Node.js), la aplicación conmuta automáticamente a WebRTC Peer-to-Peer. Los compañeros se conectan en tiempo real directamente entre navegadores sin coste ni necesidad de servidor backend.
 
 ---
 

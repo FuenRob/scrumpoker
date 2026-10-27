@@ -63,6 +63,7 @@ export function App() {
     roomId,
     roomState,
     isConnected,
+    connectionMode,
     socketId,
     userName,
     avatarColor,
@@ -98,17 +99,12 @@ export function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [roomId, joinRoom, leaveRoom]);
 
-  // If user arrives directly via a shared link (urlRoomId exists)
+  // If user arrives directly via a shared link and already has a name, enter immediately
   useEffect(() => {
-    if (urlRoomId && !roomId) {
-      if (!userName) {
-        // Name not set: prompt name modal first!
-        setIsNameModalOpen(true);
-      } else {
-        joinRoom(urlRoomId);
-      }
+    if (urlRoomId && userName && (!roomState || roomId !== urlRoomId)) {
+      joinRoom(urlRoomId);
     }
-  }, [urlRoomId, roomId, userName, joinRoom]);
+  }, [urlRoomId, roomId, roomState, userName, joinRoom]);
 
   // Sync URL when roomId changes
   const updateUrl = useCallback((newRoomId: string | null) => {
@@ -124,6 +120,7 @@ export function App() {
 
   const handleCreateRoom = (newRoomId: string, roomName: string, deckType: DeckType) => {
     if (!userName) {
+      setUrlRoomId(newRoomId);
       setIsNameModalOpen(true);
       return;
     }
@@ -164,10 +161,11 @@ export function App() {
     setIsNameModalOpen(false);
     addToast('success', `Perfil actualizado: ¡Hola, ${name}!`);
 
-    // If waiting to join a room, join now
-    if (urlRoomId && !roomId) {
-      updateUrl(urlRoomId);
-      joinRoom(urlRoomId);
+    // If joining a room via link or pending room, join immediately "de golpe"
+    const targetRoom = urlRoomId || roomId;
+    if (targetRoom) {
+      updateUrl(targetRoom);
+      joinRoom(targetRoom);
     }
   };
 
@@ -195,6 +193,7 @@ export function App() {
           avatarColor={avatarColor}
           isSpectator={isSpectator}
           isConnected={isConnected}
+          connectionMode={connectionMode}
           theme={theme}
           crabMode={crabMode}
           onToggleTheme={toggleTheme}
@@ -245,6 +244,7 @@ export function App() {
           initialColor={avatarColor}
           initialIsSpectator={isSpectator}
           isClosable={!!userName}
+          targetRoomId={urlRoomId || (!roomState ? roomId : null)}
           onSave={handleSaveProfile}
           onClose={() => setIsNameModalOpen(false)}
         />
@@ -289,6 +289,7 @@ export function App() {
         initialColor={avatarColor}
         initialIsSpectator={isSpectator}
         isClosable={!!userName}
+        targetRoomId={urlRoomId || (!roomState ? roomId : null)}
         onSave={handleSaveProfile}
         onClose={() => setIsNameModalOpen(false)}
       />

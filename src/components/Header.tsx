@@ -21,6 +21,7 @@ interface HeaderProps {
   avatarColor: string;
   isSpectator: boolean;
   isConnected: boolean;
+  connectionMode?: 'socket' | 'p2p' | 'offline';
   theme: Theme;
   onToggleTheme: () => void;
   onCopyLink: () => void;
@@ -41,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   avatarColor,
   isSpectator,
   isConnected,
+  connectionMode = 'offline',
   theme,
   onToggleTheme,
   onCopyLink,
@@ -131,12 +133,20 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Connection status dot */}
           <div
             className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-100/80 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/70 text-[11px] text-zinc-600 dark:text-zinc-400"
-            title={isConnected ? 'Conectado al servidor' : 'Sin conexión'}
+            title={
+              isConnected
+                ? connectionMode === 'p2p'
+                  ? 'Conectado en tiempo real con compañeros vía WebRTC P2P'
+                  : 'Conectado al servidor WebSocket'
+                : 'Sin conexión con el servidor ni compañeros'
+            }
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-rose-500'}`}
             />
-            <span className="hidden md:inline">{isConnected ? 'En línea' : 'Desconectado'}</span>
+            <span className="hidden md:inline">
+              {isConnected ? (connectionMode === 'p2p' ? 'En línea (P2P)' : 'En línea') : 'Desconectado'}
+            </span>
           </div>
 
           {/* Minimalist Deck selector */}

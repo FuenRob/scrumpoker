@@ -339,7 +339,7 @@ app.use((_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 3001;
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`> Servidor de Scrum Poker corriendo en http://localhost:${PORT}`);
 });

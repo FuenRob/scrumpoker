@@ -3,15 +3,49 @@ import { io, Socket } from 'socket.io-client';
 import type { RoomState, DeckType, Participant, HistoryItem } from '../types';
 import confetti from 'canvas-confetti';
 import { STORAGE_KEYS, getStoredUserName, setStoredUserName } from '../utils/storage';
+import { P2PRoomManager } from '../utils/p2pRoom';
 
 interface UseScrumPokerProps {
   initialRoomId?: string | null;
 }
 
+export type ConnectionMode = 'socket' | 'p2p' | 'offline';
+
+function resolveServerUrl(): string | null {
+  if (import.meta.env.VITE_SERVER_URL) {
+    return import.meta.env.VITE_SERVER_URL;
+  }
+  if (typeof window === 'undefined') return null;
+
+  const host = window.location.hostname;
+
+  // GitHub Pages has no backend server
+  if (host.endsWith('github.io')) {
+    return null;
+  }
+
+  // Local development
+  if (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host.startsWith('192.168.') ||
+    host.startsWith('10.') ||
+    host.endsWith('.local')
+  ) {
+    if (window.location.port === '5173') {
+      return `http://${host}:3001`;
+    }
+    return window.location.origin;
+  }
+
+  return window.location.origin;
+}
+
 export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
-  const [roomId, setRoomId] = useState<string | null>(initialRoomId || null);
+  const [roomId, setRoomId] = useState<string | null>(initialRoomId ? initialRoomId.trim().toLowerCase() : null);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [connectionMode, setConnectionMode] = useState<ConnectionMode>('offline');
   const [socketId, setSocketId] = useState<string>('user-self');
   const [userName, setUserName] = useState<string>(getStoredUserName);
   const [avatarColor, setAvatarColor] = useState<string>(() => {
@@ -24,16 +58,18 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
   const [isSimulated, setIsSimulated] = useState<boolean>(false);
   const [showCrabSwarm, setShowCrabSwarm] = useState<boolean>(false);
 
-  // Refs to always access the latest values without breaking socket listeners
+  // Refs for access in callbacks and listeners
   const socketRef = useRef<Socket | null>(null);
+  const p2pManagerRef = useRef<P2PRoomManager | null>(null);
   const roomIdRef = useRef<string | null>(roomId);
   const userNameRef = useRef<string>(userName);
   const avatarColorRef = useRef<string>(avatarColor);
   const isSpectatorRef = useRef<boolean>(isSpectator);
   const isSimulatedRef = useRef<boolean>(isSimulated);
   const prevRevealedRef = useRef<boolean>(false);
+  const socketJoinedRoomRef = useRef<boolean>(false);
 
-  // Keep refs synchronized
+  // Synchronize refs
   useEffect(() => {
     roomIdRef.current = roomId;
   }, [roomId]);
@@ -54,28 +90,105 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     isSimulatedRef.current = isSimulated;
   }, [isSimulated]);
 
-  // Initialize socket ONCE on mount
+  // Handle revelation animations (confetti & crab easter egg)
+  const handleRevealSideEffects = useCallback((state: RoomState) => {
+    if (!prevRevealedRef.current && state.isRevealed) {
+      const hasCrab = state.participants.some(
+        (p) => !p.isSpectator && p.vote === '🦀'
+      );
+      if (hasCrab) {
+        setShowCrabSwarm(true);
+      }
+
+      const votes = state.participants.filter((p) => !p.isSpectator && p.vote);
+      if (votes.length > 1) {
+        const first = votes[0].vote;
+        const allSame = votes.every((v) => v.vote === first);
+        if (allSame) {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#6366f1', '#a855f7', '#ec4899', '#22c55e', '#eab308'],
+          });
+        }
+      }
+    } else if (!state.isRevealed) {
+      setShowCrabSwarm(false);
+    }
+    prevRevealedRef.current = state.isRevealed;
+  }, []);
+
+  // Start P2P mode if socket is not available
+  const startP2PMode = useCallback(
+    (targetRoomId: string, roomName?: string, deckType?: DeckType, isHostIntent = false) => {
+      if (socketRef.current?.connected) return;
+
+      p2pManagerRef.current?.destroy();
+      p2pManagerRef.current = new P2PRoomManager({
+        roomId: targetRoomId,
+        roomName,
+        userName: userNameRef.current || 'Tú',
+        avatarColor: avatarColorRef.current,
+        isSpectator: isSpectatorRef.current,
+        deckType: deckType || 'modified-fibonacci',
+        isHostIntent,
+        onStateChange: (state: RoomState) => {
+          setRoomState(state);
+          const self = state.participants.find(
+            (p) => p.id === p2pManagerRef.current?.getSocketId() || p.name === userNameRef.current
+          );
+          if (self) {
+            setSelectedCard(self.vote);
+          }
+          handleRevealSideEffects(state);
+        },
+        onStatusChange: (status) => {
+          if (socketRef.current?.connected) return;
+          setIsConnected(status === 'connected');
+          setConnectionMode(status === 'connected' ? 'p2p' : 'offline');
+          if (status === 'connected' && p2pManagerRef.current) {
+            setSocketId(p2pManagerRef.current.getSocketId());
+          }
+        },
+      });
+    },
+    [handleRevealSideEffects]
+  );
+
+  // Initialize socket or P2P ONCE on mount
   useEffect(() => {
-    const serverUrl =
-      import.meta.env.VITE_SERVER_URL ||
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3001'
-        : window.location.origin);
+    const serverUrl = resolveServerUrl();
+
+    if (!serverUrl) {
+      // Direct P2P mode (e.g. on GitHub Pages)
+      if (roomIdRef.current) {
+        startP2PMode(roomIdRef.current);
+      }
+      return;
+    }
 
     const socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 15,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      timeout: 10000,
+      timeout: 3000,
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
       setIsConnected(true);
+      setConnectionMode('socket');
       setSocketId(socket.id || 'user-self');
 
-      // Auto-rejoin if we already have room and user name
+      // Stop P2P fallback if socket connects
+      if (p2pManagerRef.current) {
+        p2pManagerRef.current.destroy();
+        p2pManagerRef.current = null;
+      }
+
+      // Auto-rejoin if room and username are present
       if (roomIdRef.current && userNameRef.current) {
         socket.emit('join_room', {
           roomId: roomIdRef.current,
@@ -83,21 +196,26 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
           avatarColor: avatarColorRef.current,
           isSpectator: isSpectatorRef.current,
         });
+        socketJoinedRoomRef.current = true;
       }
     });
 
     socket.on('disconnect', () => {
       setIsConnected(false);
+      setConnectionMode('offline');
+      socketJoinedRoomRef.current = false;
     });
 
     socket.on('connect_error', () => {
-      setIsConnected(false);
+      // If socket server cannot be reached, fallback to WebRTC P2P
+      if (roomIdRef.current && !p2pManagerRef.current) {
+        startP2PMode(roomIdRef.current);
+      }
     });
 
     socket.on('room_state', (state: RoomState) => {
       setRoomState(state);
 
-      // Find self in participants to update selected card
       const self = state.participants.find(
         (p) => p.id === socket.id || p.name === userNameRef.current
       );
@@ -105,41 +223,16 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         setSelectedCard(self.vote);
       }
 
-      // Check if cards were just revealed for confetti and crab easter egg
-      if (!prevRevealedRef.current && state.isRevealed) {
-        // Trigger crab swarm ONLY if any participant voted for crab
-        const hasCrab = state.participants.some(
-          (p) => !p.isSpectator && p.vote === '🦀'
-        );
-        if (hasCrab) {
-          setShowCrabSwarm(true);
-        }
-
-        const votes = state.participants.filter((p) => !p.isSpectator && p.vote);
-        if (votes.length > 1) {
-          const first = votes[0].vote;
-          const allSame = votes.every((v) => v.vote === first);
-          if (allSame) {
-            confetti({
-              particleCount: 100,
-              spread: 70,
-              origin: { y: 0.6 },
-              colors: ['#6366f1', '#a855f7', '#ec4899', '#22c55e', '#eab308'],
-            });
-          }
-        }
-      } else if (!state.isRevealed) {
-        setShowCrabSwarm(false);
-      }
-      prevRevealedRef.current = state.isRevealed;
+      handleRevealSideEffects(state);
     });
 
     return () => {
       socket.disconnect();
+      p2pManagerRef.current?.destroy();
     };
-  }, []);
+  }, [startP2PMode, handleRevealSideEffects]);
 
-  // Join room
+  // Join Room
   const joinRoom = useCallback(
     (targetRoomId: string, roomName?: string, deckType?: DeckType) => {
       const cleanId = targetRoomId.trim().toLowerCase();
@@ -158,10 +251,11 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         // Ignore storage error
       }
 
-      // Provide immediate optimistic room state
-      const currentSocketId = socketRef.current?.id || 'user-self';
+      const currentSocketId = socketRef.current?.id || p2pManagerRef.current?.getSocketId() || 'user-self';
+
+      // Provide immediate optimistic room state so poker table renders instantly
       setRoomState((prev) => {
-        if (prev && prev.roomId === cleanId) return prev;
+        if (prev && prev.roomId === cleanId && prev.participants.length > 0) return prev;
         return {
           roomId: cleanId,
           roomName: roomName || `Sala ${cleanId.toUpperCase()}`,
@@ -184,6 +278,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         };
       });
 
+      // Send to Socket.IO if connected
       if (socketRef.current?.connected) {
         socketRef.current.emit('join_room', {
           roomId: cleanId,
@@ -193,9 +288,13 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
           isSpectator,
           deckType,
         });
+        socketJoinedRoomRef.current = true;
+      } else {
+        // Otherwise start P2P mode
+        startP2PMode(cleanId, roomName, deckType, !!roomName);
       }
     },
-    [userName, avatarColor, isSpectator]
+    [userName, avatarColor, isSpectator, startP2PMode]
   );
 
   // Leave room
@@ -206,18 +305,27 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     setSelectedCard(null);
     setIsSimulated(false);
     setShowCrabSwarm(false);
+    socketJoinedRoomRef.current = false;
+
+    if (p2pManagerRef.current) {
+      p2pManagerRef.current.sendAction({
+        type: 'leave',
+        payload: { senderId: p2pManagerRef.current.getSocketId() },
+      });
+      p2pManagerRef.current.destroy();
+      p2pManagerRef.current = null;
+    }
   }, []);
 
-  // Cast vote (with instant optimistic update so votes ALWAYS register immediately)
+  // Cast vote (instant optimistic update)
   const castVote = useCallback(
     (card: string) => {
       if (roomState?.isRevealed) return;
       const newVote = selectedCard === card ? null : card;
       setSelectedCard(newVote);
 
-      const currentSocketId = socketRef.current?.id;
+      const currentSocketId = socketRef.current?.id || p2pManagerRef.current?.getSocketId();
 
-      // Instant Optimistic Update on local roomState
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -239,9 +347,13 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         };
       });
 
-      // Send to server if connected
       if (socketRef.current?.connected && !isSimulated) {
         socketRef.current.emit('cast_vote', { vote: newVote });
+      } else if (p2pManagerRef.current && !isSimulated) {
+        p2pManagerRef.current.sendAction({
+          type: 'cast_vote',
+          payload: { vote: newVote, senderId: p2pManagerRef.current.getSocketId() },
+        });
       }
     },
     [selectedCard, roomState?.isRevealed, isSimulated]
@@ -249,7 +361,6 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
   // Reveal votes
   const revealVotes = useCallback(() => {
-    // Instant Optimistic Update
     setRoomState((prev) => {
       if (!prev) return prev;
 
@@ -261,8 +372,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         setShowCrabSwarm(true);
       }
 
-      // In simulated mode or offline, record to history
-      if (isSimulated || !socketRef.current?.connected) {
+      if (isSimulated || (!socketRef.current?.connected && !p2pManagerRef.current)) {
         const voters = prev.participants.filter((p) => !p.isSpectator && p.vote !== null);
         const numeric = voters
           .filter((v) => v.vote !== '?' && v.vote !== '☕' && v.vote !== '🦀')
@@ -294,6 +404,11 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
     if (socketRef.current?.connected && !isSimulated) {
       socketRef.current.emit('reveal_votes');
+    } else if (p2pManagerRef.current && !isSimulated) {
+      p2pManagerRef.current.sendAction({
+        type: 'reveal_votes',
+        payload: { senderId: p2pManagerRef.current.getSocketId() },
+      });
     }
   }, [isSimulated, selectedCard]);
 
@@ -302,7 +417,6 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     setSelectedCard(null);
     setShowCrabSwarm(false);
 
-    // Instant Optimistic Update
     setRoomState((prev) => {
       if (!prev) return prev;
       return {
@@ -318,6 +432,11 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
     if (socketRef.current?.connected && !isSimulated) {
       socketRef.current.emit('reset_votes');
+    } else if (p2pManagerRef.current && !isSimulated) {
+      p2pManagerRef.current.sendAction({
+        type: 'reset_votes',
+        payload: { senderId: p2pManagerRef.current.getSocketId() },
+      });
     }
   }, [isSimulated]);
 
@@ -328,6 +447,11 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
       if (socketRef.current?.connected && !isSimulated) {
         socketRef.current.emit('update_story', { storyTitle });
+      } else if (p2pManagerRef.current && !isSimulated) {
+        p2pManagerRef.current.sendAction({
+          type: 'update_story',
+          payload: { storyTitle, senderId: p2pManagerRef.current.getSocketId() },
+        });
       }
     },
     [isSimulated]
@@ -350,6 +474,11 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
       if (socketRef.current?.connected && !isSimulated) {
         socketRef.current.emit('change_deck', { deckType });
+      } else if (p2pManagerRef.current && !isSimulated) {
+        p2pManagerRef.current.sendAction({
+          type: 'change_deck',
+          payload: { deckType, senderId: p2pManagerRef.current.getSocketId() },
+        });
       }
     },
     [isSimulated]
@@ -362,7 +491,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       isSpectatorRef.current = spectator;
       localStorage.setItem(STORAGE_KEYS.IS_SPECTATOR, String(spectator));
 
-      const currentSocketId = socketRef.current?.id;
+      const currentSocketId = socketRef.current?.id || p2pManagerRef.current?.getSocketId();
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -382,6 +511,11 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
 
       if (socketRef.current?.connected && !isSimulated) {
         socketRef.current.emit('toggle_spectator', { isSpectator: spectator });
+      } else if (p2pManagerRef.current && !isSimulated) {
+        p2pManagerRef.current.sendAction({
+          type: 'toggle_spectator',
+          payload: { isSpectator: spectator, senderId: p2pManagerRef.current.getSocketId() },
+        });
       }
     },
     [isSimulated]
@@ -408,7 +542,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         localStorage.setItem(STORAGE_KEYS.IS_SPECTATOR, String(spectator));
       }
 
-      const currentSocketId = socketRef.current?.id;
+      const currentSocketId = socketRef.current?.id || p2pManagerRef.current?.getSocketId();
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -432,7 +566,21 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       });
 
       if (socketRef.current?.connected) {
-        socketRef.current.emit('change_name', { name: cleanName });
+        if (socketJoinedRoomRef.current) {
+          socketRef.current.emit('change_name', { name: cleanName });
+        } else if (roomIdRef.current) {
+          socketRef.current.emit('join_room', {
+            roomId: roomIdRef.current,
+            name: cleanName,
+            avatarColor: color || avatarColorRef.current,
+            isSpectator: spectator !== undefined ? spectator : isSpectatorRef.current,
+          });
+          socketJoinedRoomRef.current = true;
+        }
+      }
+
+      if (p2pManagerRef.current) {
+        p2pManagerRef.current.updateProfile(cleanName, color, spectator);
       }
     },
     []
@@ -448,7 +596,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       { id: 'bot-3', name: 'Elena (QA)', avatarColor: '#10b981', isSpectator: false, hasVoted: true, vote: '8' },
     ];
 
-    const currentSocketId = socketRef.current?.id || 'user-self';
+    const currentSocketId = socketRef.current?.id || p2pManagerRef.current?.getSocketId() || 'user-self';
 
     setRoomState((prev) => {
       const existingUser = prev?.participants.find(
@@ -482,6 +630,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     roomId,
     roomState,
     isConnected,
+    connectionMode,
     socketId,
     userName,
     avatarColor,
