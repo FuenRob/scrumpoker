@@ -54,7 +54,7 @@ export const CardDeck: React.FC<CardDeckProps> = ({
 
   return (
     <div className="w-full bg-white/95 dark:bg-zinc-950/95 border-t border-zinc-200 dark:border-zinc-800/80 backdrop-blur-md pt-7 pb-6 sm:pt-9 sm:pb-8 px-2 sm:px-6 sticky bottom-0 z-30 font-sans shadow-[0_-8px_25px_rgba(0,0,0,0.03)] dark:shadow-[0_-8px_25px_rgba(0,0,0,0.5)] transition-colors duration-150">
-      <div className="max-w-4xl mx-auto flex flex-col items-center gap-3">
+      <div className="max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto flex flex-col items-center gap-3">
         {/* Minimalist status bar */}
         <div className="w-full flex items-center justify-between text-xs px-2 font-light">
           <span className="text-zinc-500 dark:text-zinc-400">

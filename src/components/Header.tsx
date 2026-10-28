@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="w-full bg-white/80 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800/80 sticky top-0 z-40 font-sans transition-colors duration-150">
       {/* Top Bar */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+      <div className="max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
         {/* Left: Brand & Room name */}
         <div className="flex items-center gap-3 min-w-0">
           <div
@@ -254,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Story / Topic Bar */}
       <div className="bg-zinc-50/80 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-900 px-4 sm:px-6 py-2 transition-colors duration-150">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs">
+        <div className="max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] mx-auto flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 shrink-0">
               Tarea:

@@ -17,7 +17,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ participants }) => {
   const hasDivergence = stats.min !== null && stats.max !== null && stats.max - stats.min > 3;
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-4 animate-in fade-in duration-200 font-sans">
+    <div className="w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto px-4 py-4 animate-in fade-in duration-200 font-sans">
       <div className="bg-white/80 dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-5 sm:p-6 space-y-5 backdrop-blur-sm shadow-sm dark:shadow-none transition-colors duration-150">
         
         {/* Consensus or Divergence notice */}

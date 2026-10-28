@@ -613,10 +613,15 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
   const addDemoBots = useCallback(() => {
     setIsSimulated(true);
     isSimulatedRef.current = true;
-    const mockBots: Participant[] = [
+    const botPool: Participant[] = [
       { id: 'bot-1', name: 'Laura (Frontend)', avatarColor: '#ec4899', isSpectator: false, hasVoted: true, vote: '5' },
       { id: 'bot-2', name: 'Marcos (Backend)', avatarColor: '#3b82f6', isSpectator: false, hasVoted: true, vote: '5' },
       { id: 'bot-3', name: 'Elena (QA)', avatarColor: '#10b981', isSpectator: false, hasVoted: true, vote: '8' },
+      { id: 'bot-4', name: 'David (DevOps)', avatarColor: '#f59e0b', isSpectator: false, hasVoted: true, vote: '5' },
+      { id: 'bot-5', name: 'Sara (Product)', avatarColor: '#8b5cf6', isSpectator: false, hasVoted: true, vote: '8' },
+      { id: 'bot-6', name: 'Carlos (Mobile)', avatarColor: '#06b6d4', isSpectator: false, hasVoted: true, vote: '3' },
+      { id: 'bot-7', name: 'Ana (Design)', avatarColor: '#f43f5e', isSpectator: false, hasVoted: true, vote: '5' },
+      { id: 'bot-8', name: 'Javier (Data)', avatarColor: '#14b8a6', isSpectator: false, hasVoted: true, vote: '8' },
     ];
 
     const currentSocketId = socketRef.current?.id || p2pManagerRef.current?.getSocketId() || 'user-self';
@@ -636,13 +641,28 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         isHost: true,
       };
 
+      const existingBots = (prev?.participants || []).filter((p) => p.id.startsWith('bot-'));
+      let nextBots: Participant[] = [];
+
+      if (existingBots.length === 0) {
+        nextBots = botPool.slice(0, 3);
+      } else if (existingBots.length < botPool.length) {
+        nextBots = botPool.slice(0, existingBots.length + 1);
+      } else {
+        nextBots = existingBots;
+      }
+
+      const otherRealUsers = (prev?.participants || []).filter(
+        (p) => !p.id.startsWith('bot-') && p.id !== currentUser.id && p.name !== currentUser.name
+      );
+
       return {
         roomId: prev?.roomId || roomIdRef.current || 'demo-room',
         roomName: prev?.roomName || 'Sala de Demostración con Bots',
         storyTitle: prev?.storyTitle || 'US-204: Integración del sistema de pagos y checkout',
         deckType: prev?.deckType || 'modified-fibonacci',
         isRevealed: false,
-        participants: [currentUser, ...mockBots],
+        participants: [currentUser, ...otherRealUsers, ...nextBots],
         history: prev?.history || [],
         hostId: currentUser.id,
       };

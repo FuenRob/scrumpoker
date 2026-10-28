@@ -25,13 +25,13 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   const allVoted = voters.length > 0 && votedCount === voters.length;
 
   return (
-    <div className="w-full flex flex-col items-center justify-center py-6 px-4 font-sans">
-      <div className="w-full max-w-4xl relative">
+    <div className="w-full flex flex-col items-center justify-center py-4 sm:py-6 px-3 sm:px-4 md:px-6 font-sans">
+      <div className="w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] relative transition-all duration-300">
         {/* Minimalist Felt Table */}
-        <div className="w-full min-h-[360px] sm:min-h-[400px] rounded-3xl bg-white/70 dark:bg-zinc-900/30 border border-zinc-200/90 dark:border-zinc-800/80 p-6 sm:p-10 flex flex-col items-center justify-between relative overflow-hidden backdrop-blur-sm shadow-sm dark:shadow-none transition-colors duration-150">
+        <div className="w-full min-h-[360px] sm:min-h-[400px] rounded-3xl bg-white/70 dark:bg-zinc-900/30 border border-zinc-200/90 dark:border-zinc-800/80 p-5 sm:p-7 md:p-9 flex flex-col items-center justify-between relative overflow-hidden backdrop-blur-sm shadow-sm dark:shadow-none transition-colors duration-150">
           
           {/* Subtle minimal center accent */}
-          <div className="absolute inset-x-12 top-1/2 -translate-y-1/2 h-44 rounded-full border border-zinc-200/80 dark:border-zinc-800/40 pointer-events-none" />
+          <div className="absolute inset-x-8 sm:inset-x-12 top-1/2 -translate-y-1/2 h-44 rounded-full border border-zinc-200/80 dark:border-zinc-800/40 pointer-events-none" />
 
           {/* Table Center: Actions & Status */}
           <div className="my-auto z-10 flex flex-col items-center text-center max-w-md py-4">
@@ -105,7 +105,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
           {/* Participants Seats */}
           <div className="w-full z-10 pt-4">
-            <div className="flex flex-wrap items-start justify-center gap-5 sm:gap-8">
+            <div className="flex flex-wrap items-start justify-center gap-x-3 sm:gap-x-4 md:gap-5 lg:gap-6 gap-y-4 sm:gap-y-6 transition-all duration-200">
               {roomState.participants.map((participant) => {
                 const isHost = participant.id === roomState.hostId;
                 const isCurrentPlayer =
