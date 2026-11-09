@@ -1,57 +1,150 @@
-name: Deploy to GitHub Pages
+name: Deploy production
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 concurrency:
-  group: 'pages'
-  cancel-in-progress: false
+  group: production
+  cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Install pnpm
-        run: npm install -g pnpm
+          cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      - name: Build project
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build frontend
+        env:
+          BASE_PATH: /
+          VITE_P2P: 'true'
         run: pnpm run build
 
-      - name: Setup SPA fallback (404.html)
-        run: cp dist/index.html dist/404.html
-
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Package release
+        run: tar -czf release.tgz -C dist .
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          path: './dist'
+          name: scrumpoker-release
+          path: release.tgz
+          retention-days: 7
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: scrumpoker-release
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          python <<'PY' > ~/.ssh/deploy_key
+          import os
+
+          key = os.environ["VPS_SSH_KEY"]
+          key = key.lstrip("\ufeff").strip()
+          if len(key) >= 2 and key[0] == key[-1] and key[0] in "'\"":
+              key = key[1:-1]
+          key = key.replace("\\r\\n", "\n").replace("\\n", "\n")
+          key = key.replace("\r\n", "\n").replace("\r", "\n")
+          if not key.endswith("\n"):
+              key += "\n"
+          print(key, end="")
+          PY
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload release
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          scp \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -i ~/.ssh/deploy_key \
+            -P "${VPS_PORT:-22}" \
+            release.tgz \
+            "${VPS_USER}@${VPS_HOST}:/tmp/scrumpoker-${RELEASE_ID}.tgz"
+
+      - name: Activate release
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          ssh \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -i ~/.ssh/deploy_key \
+            -p "${VPS_PORT:-22}" \
+            "${VPS_USER}@${VPS_HOST}" \
+            bash -s -- \
+            "$RELEASE_ID" \
+            "/tmp/scrumpoker-${RELEASE_ID}.tgz" <<'REMOTE'
+          set -Eeuo pipefail
+
+          RELEASE_ID="$1"
+          ARCHIVE="$2"
+          APP_ROOT="/var/www/scrumpoker"
+          RELEASE_DIR="$APP_ROOT/releases/$RELEASE_ID"
+
+          mkdir -p "$RELEASE_DIR"
+          tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
+
+          test -f "$RELEASE_DIR/index.html"
+
+          rm -f "$APP_ROOT/current.next"
+          ln -s "$RELEASE_DIR" "$APP_ROOT/current.next"
+          mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
+
+          rm -f "$ARCHIVE"
+
+          find "$APP_ROOT/releases" \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type d \
+            -printf '%T@ %p\n' |
+            sort -nr |
+            tail -n +6 |
+            cut -d' ' -f2- |
+            while IFS= read -r old_release; do
+              rm -rf -- "$old_release"
+            done
+          REMOTE

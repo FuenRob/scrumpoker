@@ -12,6 +12,9 @@ interface UseScrumPokerProps {
 export type ConnectionMode = 'socket' | 'p2p' | 'offline';
 
 function resolveServerUrl(): string | null {
+  if (import.meta.env.VITE_P2P === 'true') {
+    return null;
+  }
   if (import.meta.env.VITE_SERVER_URL) {
     return import.meta.env.VITE_SERVER_URL;
   }
