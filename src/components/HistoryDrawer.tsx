@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, History, Copy, Check, Calendar } from 'lucide-react';
 import { CrabIcon } from './CrabIcon';
 import type { HistoryItem } from '../types';
+import { escapeMarkdownCell } from '../utils/validation';
 
 interface HistoryDrawerProps {
   isOpen: boolean;
@@ -27,8 +28,11 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
     md += '| :--- | :--- | :--- | :--- |\n';
 
     for (const item of history) {
-      const votesStr = item.votes.map((v) => `${v.name}: ${v.vote}`).join(', ');
-      md += `| ${item.storyTitle} | ${item.average !== null ? item.average + ' pt' : '—'} | ${item.agreementPercentage}% | ${votesStr} |\n`;
+      const safeTitle = escapeMarkdownCell(item.storyTitle);
+      const votesStr = item.votes
+        .map((v) => `${escapeMarkdownCell(v.name)}: ${escapeMarkdownCell(v.vote)}`)
+        .join(', ');
+      md += `| ${safeTitle} | ${item.average !== null ? item.average + ' pt' : '—'} | ${item.agreementPercentage}% | ${votesStr} |\n`;
     }
 
     navigator.clipboard.writeText(md);

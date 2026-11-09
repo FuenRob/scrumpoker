@@ -4,7 +4,6 @@ import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { DeckType } from '../src/types.ts';
 import {
   createRoom,
   sanitizeRoomState,
@@ -19,18 +18,30 @@ import {
   changeNameInRoom,
   type InternalRoom,
 } from '../src/utils/roomEngine.ts';
+import {
+  LIMITS,
+  isPlainObject,
+  sanitizeDeckType,
+  sanitizeRoomId,
+} from '../src/utils/validation.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : '*';
+
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json({ limit: '16kb' }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
+  maxHttpBufferSize: 16 * 1024, // 16 KB max frame size
   cors: {
-    origin: '*',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
@@ -38,6 +49,35 @@ const io = new Server(server, {
 const rooms = new Map<string, InternalRoom>();
 const socketToRoom = new Map<string, string>();
 const roomCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const socketRateLimits = new Map<string, { count: number; resetAt: number }>();
+
+const RATE_LIMIT_WINDOW_MS = 5000;
+const RATE_LIMIT_MAX_EVENTS = 45;
+
+function isSocketRateLimited(socketId: string): boolean {
+  const now = Date.now();
+  const entry = socketRateLimits.get(socketId);
+  if (!entry || now >= entry.resetAt) {
+    socketRateLimits.set(socketId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RATE_LIMIT_MAX_EVENTS;
+}
+
+function evictEmptyRoomIfNeeded(): boolean {
+  if (rooms.size < LIMITS.MAX_ROOMS) return true;
+  for (const [id, r] of rooms.entries()) {
+    if (r.users.size === 0) {
+      const timer = roomCleanupTimers.get(id);
+      if (timer) clearTimeout(timer);
+      roomCleanupTimers.delete(id);
+      rooms.delete(id);
+      return true;
+    }
+  }
+  return rooms.size < LIMITS.MAX_ROOMS;
+}
 
 function broadcastRoomState(room: InternalRoom) {
   room.users.forEach((_, socketId) => {
@@ -46,9 +86,12 @@ function broadcastRoomState(room: InternalRoom) {
   });
 }
 
-function getRoomForSocket(socketId: string): InternalRoom | undefined {
+function getRoomForMemberSocket(socketId: string): InternalRoom | undefined {
   const roomId = socketToRoom.get(socketId);
-  return roomId ? rooms.get(roomId) : undefined;
+  if (!roomId) return undefined;
+  const room = rooms.get(roomId);
+  if (!room || !room.users.has(socketId)) return undefined;
+  return room;
 }
 
 function handleSocketLeaveRoom(socket: Socket) {
@@ -82,80 +125,75 @@ function handleSocketLeaveRoom(socket: Socket) {
 
 io.on('connection', (socket: Socket) => {
   // Join Room
-  socket.on(
-    'join_room',
-    ({
-      roomId,
-      roomName,
-      userId,
-      name,
-      avatarColor,
-      isSpectator = false,
-      deckType = 'modified-fibonacci',
-    }: {
-      roomId: string;
-      roomName?: string;
-      userId?: string;
-      name: string;
-      avatarColor?: string;
-      isSpectator?: boolean;
-      deckType?: DeckType;
-    }) => {
-      const cleanRoomId = roomId.trim().toLowerCase();
-      const previousRoomId = socketToRoom.get(socket.id);
-      if (previousRoomId && previousRoomId !== cleanRoomId) {
-        handleSocketLeaveRoom(socket);
-      }
+  socket.on('join_room', (payload: unknown) => {
+    if (isSocketRateLimited(socket.id) || !isPlainObject(payload)) return;
 
-      let room = rooms.get(cleanRoomId);
+    const cleanRoomId = sanitizeRoomId(payload.roomId);
+    if (!cleanRoomId) return;
 
-      const pendingTimer = roomCleanupTimers.get(cleanRoomId);
-      if (pendingTimer) {
-        clearTimeout(pendingTimer);
-        roomCleanupTimers.delete(cleanRoomId);
-      }
-
-      if (!room) {
-        room = createRoom(cleanRoomId, roomName, deckType, socket.id);
-        rooms.set(cleanRoomId, room);
-      }
-
-      socket.join(cleanRoomId);
-      socketToRoom.set(socket.id, cleanRoomId);
-
-      const previousSocketIds = new Set(room.users.keys());
-      addUserToRoom(room, {
-        socketId: socket.id,
-        userId,
-        name,
-        avatarColor,
-        isSpectator,
-      });
-
-      // Clean up socketToRoom if an old socket entry was replaced on rejoin
-      for (const oldSocketId of previousSocketIds) {
-        if (!room.users.has(oldSocketId)) {
-          socketToRoom.delete(oldSocketId);
-        }
-      }
-
-      broadcastRoomState(room);
+    const previousRoomId = socketToRoom.get(socket.id);
+    if (previousRoomId && previousRoomId !== cleanRoomId) {
+      handleSocketLeaveRoom(socket);
     }
-  );
+
+    let room = rooms.get(cleanRoomId);
+
+    const pendingTimer = roomCleanupTimers.get(cleanRoomId);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      roomCleanupTimers.delete(cleanRoomId);
+    }
+
+    if (!room) {
+      if (!evictEmptyRoomIfNeeded()) return;
+      room = createRoom(
+        cleanRoomId,
+        typeof payload.roomName === 'string' ? payload.roomName : undefined,
+        sanitizeDeckType(payload.deckType),
+        socket.id
+      );
+      rooms.set(cleanRoomId, room);
+    }
+
+    const previousSocketIds = new Set(room.users.keys());
+    const added = addUserToRoom(room, {
+      socketId: socket.id,
+      userId: typeof payload.userId === 'string' ? payload.userId : undefined,
+      name: typeof payload.name === 'string' ? payload.name : 'Anónimo',
+      avatarColor: typeof payload.avatarColor === 'string' ? payload.avatarColor : undefined,
+      isSpectator: typeof payload.isSpectator === 'boolean' ? payload.isSpectator : false,
+    });
+
+    if (!added) return;
+
+    socket.join(cleanRoomId);
+    socketToRoom.set(socket.id, cleanRoomId);
+
+    // Clean up socketToRoom if an old socket entry was replaced on rejoin
+    for (const oldSocketId of previousSocketIds) {
+      if (!room.users.has(oldSocketId)) {
+        socketToRoom.delete(oldSocketId);
+      }
+    }
+
+    broadcastRoomState(room);
+  });
 
   // Cast vote
-  socket.on('cast_vote', ({ vote }: { vote: string | null }) => {
-    const room = getRoomForSocket(socket.id);
+  socket.on('cast_vote', (payload: unknown) => {
+    if (isSocketRateLimited(socket.id) || !isPlainObject(payload)) return;
+    const room = getRoomForMemberSocket(socket.id);
     if (!room) return;
 
-    if (castVoteInRoom(room, socket.id, vote)) {
+    if (castVoteInRoom(room, socket.id, payload.vote)) {
       broadcastRoomState(room);
     }
   });
 
   // Reveal votes
   socket.on('reveal_votes', () => {
-    const room = getRoomForSocket(socket.id);
+    if (isSocketRateLimited(socket.id)) return;
+    const room = getRoomForMemberSocket(socket.id);
     if (!room || room.isRevealed) return;
 
     revealVotesInRoom(room);
@@ -164,7 +202,8 @@ io.on('connection', (socket: Socket) => {
 
   // Reset votes for next round
   socket.on('reset_votes', () => {
-    const room = getRoomForSocket(socket.id);
+    if (isSocketRateLimited(socket.id)) return;
+    const room = getRoomForMemberSocket(socket.id);
     if (!room) return;
 
     resetVotesInRoom(room);
@@ -172,43 +211,48 @@ io.on('connection', (socket: Socket) => {
   });
 
   // Update story / topic
-  socket.on('update_story', ({ storyTitle }: { storyTitle: string }) => {
-    const room = getRoomForSocket(socket.id);
+  socket.on('update_story', (payload: unknown) => {
+    if (isSocketRateLimited(socket.id) || !isPlainObject(payload)) return;
+    const room = getRoomForMemberSocket(socket.id);
     if (!room) return;
 
-    updateStoryInRoom(room, storyTitle);
-    broadcastRoomState(room);
+    if (updateStoryInRoom(room, payload.storyTitle)) {
+      broadcastRoomState(room);
+    }
   });
 
   // Change deck type
-  socket.on('change_deck', ({ deckType }: { deckType: DeckType }) => {
-    const room = getRoomForSocket(socket.id);
+  socket.on('change_deck', (payload: unknown) => {
+    if (isSocketRateLimited(socket.id) || !isPlainObject(payload)) return;
+    const room = getRoomForMemberSocket(socket.id);
     if (!room) return;
 
-    changeDeckInRoom(room, deckType);
-    broadcastRoomState(room);
+    if (changeDeckInRoom(room, payload.deckType)) {
+      broadcastRoomState(room);
+    }
   });
 
   // Toggle spectator mode
-  socket.on('toggle_spectator', ({ isSpectator }: { isSpectator: boolean }) => {
-    const room = getRoomForSocket(socket.id);
+  socket.on('toggle_spectator', (payload: unknown) => {
+    if (isSocketRateLimited(socket.id) || !isPlainObject(payload)) return;
+    const room = getRoomForMemberSocket(socket.id);
     if (!room) return;
 
-    toggleSpectatorInRoom(room, socket.id, isSpectator);
-    broadcastRoomState(room);
+    if (toggleSpectatorInRoom(room, socket.id, payload.isSpectator)) {
+      broadcastRoomState(room);
+    }
   });
 
   // Change user name / avatar color
-  socket.on(
-    'change_name',
-    ({ name, avatarColor }: { name: string; avatarColor?: string }) => {
-      const room = getRoomForSocket(socket.id);
-      if (!room) return;
+  socket.on('change_name', (payload: unknown) => {
+    if (isSocketRateLimited(socket.id) || !isPlainObject(payload)) return;
+    const room = getRoomForMemberSocket(socket.id);
+    if (!room) return;
 
-      changeNameInRoom(room, socket.id, name, avatarColor);
+    if (changeNameInRoom(room, socket.id, payload.name, payload.avatarColor)) {
       broadcastRoomState(room);
     }
-  );
+  });
 
   // Explicit leave room (when user clicks "Leave room" or navigates back to Lobby)
   socket.on('leave_room', () => {
@@ -217,6 +261,7 @@ io.on('connection', (socket: Socket) => {
 
   // Disconnect
   socket.on('disconnect', () => {
+    socketRateLimits.delete(socket.id);
     handleSocketLeaveRoom(socket);
   });
 });

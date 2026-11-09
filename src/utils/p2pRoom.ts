@@ -15,6 +15,12 @@ import {
   changeNameInRoom,
   type InternalRoom,
 } from './roomEngine';
+import {
+  generateSecureId,
+  isPlainObject,
+  sanitizeRoomId,
+  sanitizeUserId,
+} from './validation';
 
 export type P2PMessage =
   | {
@@ -85,9 +91,9 @@ export class P2PRoomManager {
   };
 
   constructor(options: P2PRoomOptions) {
-    this.cleanRoomId = options.roomId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    this.cleanRoomId = sanitizeRoomId(options.roomId) || 'default';
     this.roomName = options.roomName;
-    this.userId = options.userId || `u_${Math.random().toString(36).substring(2, 9)}`;
+    this.userId = sanitizeUserId(options.userId) || `u_${generateSecureId(12)}`;
     this.userName = options.userName;
     this.avatarColor = options.avatarColor;
     this.isSpectator = options.isSpectator;
@@ -100,7 +106,7 @@ export class P2PRoomManager {
     };
     this.onStatusChange = options.onStatusChange;
 
-    this.localSocketId = `p2p_${Math.random().toString(36).substring(2, 9)}`;
+    this.localSocketId = `p2p_${generateSecureId(10)}`;
 
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', this.handleBeforeUnload);
@@ -220,7 +226,7 @@ export class P2PRoomManager {
   }
 
   private connectAsGuest() {
-    const guestId = `sp-guest-${this.cleanRoomId}-${Math.random().toString(36).substring(2, 9)}`;
+    const guestId = `sp-guest-${this.cleanRoomId}-${generateSecureId(8)}`;
 
     try {
       this.peer = new Peer(guestId, {
@@ -362,16 +368,13 @@ export class P2PRoomManager {
       }
     });
 
-    // Mirror to BroadcastChannel
+    // Mirror sanitized state to BroadcastChannel (never expose secret unrevealed votes or userIds)
     if (this.broadcastChannel) {
       try {
-        const serializedUsers = Array.from(this.internalRoom.users.entries());
+        const publicState = sanitizeRoomState(this.internalRoom, '');
         this.broadcastChannel.postMessage({
-          type: 'internal_room_sync',
-          payload: {
-            ...this.internalRoom,
-            users: serializedUsers,
-          },
+          type: 'room_state',
+          payload: publicState,
         });
       } catch {
         // Ignore
@@ -379,38 +382,87 @@ export class P2PRoomManager {
     }
   }
 
-  private handleIncomingMessage(msg: P2PMessage, senderPeerId: string) {
-    if (!msg || !msg.type) return;
+  private resolveVerifiedSenderId(msg: P2PMessage, senderPeerId: string): string | null {
+    // 1. Direct local host dispatch
+    if (senderPeerId === this.localSocketId) {
+      return this.localSocketId;
+    }
+
+    // 2. Local BroadcastChannel tab (prevent spoofing the host's own socketId)
+    if (senderPeerId === 'local-bc') {
+      const payload = isPlainObject((msg as any).payload) ? (msg as any).payload : null;
+      const candidate = payload ? sanitizeUserId(payload.senderId) : undefined;
+      if (!candidate || candidate === this.localSocketId) return null;
+      return candidate;
+    }
+
+    // 3. Remote WebRTC peer: strictly bind peer connection to a single socketId on join_room
+    if (msg.type === 'join_room') {
+      const existingBound = this.peerToSocketId.get(senderPeerId);
+      if (existingBound) return existingBound;
+
+      const requestedId = sanitizeUserId(msg.payload?.senderId);
+      const safeId =
+        requestedId &&
+        requestedId !== this.localSocketId &&
+        !Array.from(this.peerToSocketId.values()).includes(requestedId)
+          ? requestedId
+          : senderPeerId;
+
+      this.peerToSocketId.set(senderPeerId, safeId);
+      return safeId;
+    }
+
+    // Subsequent actions MUST use the socketId bound to this WebRTC DataConnection
+    return this.peerToSocketId.get(senderPeerId) || null;
+  }
+
+  private handleIncomingMessage(msg: unknown, senderPeerId: string) {
+    if (!isPlainObject(msg) || typeof msg.type !== 'string') return;
+    const typedMsg = msg as P2PMessage;
 
     // If I am the Host, process action in roomEngine and broadcast!
     if (this.isHost && this.internalRoom) {
-      const senderId = (msg as any).payload?.senderId || senderPeerId;
+      const senderId = this.resolveVerifiedSenderId(typedMsg, senderPeerId);
+      if (!senderId) return;
 
-      switch (msg.type) {
+      // Require room membership for all actions except join_room
+      if (typedMsg.type !== 'join_room' && !this.internalRoom.users.has(senderId)) {
+        return;
+      }
+
+      switch (typedMsg.type) {
         case 'join_room': {
-          const p = msg.payload;
-          this.peerToSocketId.set(senderPeerId, senderId);
-          addUserToRoom(this.internalRoom, {
-            socketId: senderId,
-            userId: p.userId,
-            name: p.name,
-            avatarColor: p.avatarColor,
-            isSpectator: p.isSpectator,
-            vote: p.vote,
-          });
-          this.broadcastHostState();
+          if (!isPlainObject(typedMsg.payload)) return;
+          const p = typedMsg.payload;
+          if (
+            addUserToRoom(this.internalRoom, {
+              socketId: senderId,
+              userId: typeof p.userId === 'string' ? p.userId : undefined,
+              name: typeof p.name === 'string' ? p.name : 'Anónimo',
+              avatarColor: typeof p.avatarColor === 'string' ? p.avatarColor : undefined,
+              isSpectator: typeof p.isSpectator === 'boolean' ? p.isSpectator : false,
+              vote: p.vote,
+            })
+          ) {
+            this.broadcastHostState();
+          }
           break;
         }
 
         case 'cast_vote': {
-          castVoteInRoom(this.internalRoom, senderId, msg.payload.vote);
-          this.broadcastHostState();
+          if (!isPlainObject(typedMsg.payload)) return;
+          if (castVoteInRoom(this.internalRoom, senderId, typedMsg.payload.vote)) {
+            this.broadcastHostState();
+          }
           break;
         }
 
         case 'reveal_votes': {
-          revealVotesInRoom(this.internalRoom);
-          this.broadcastHostState();
+          if (!this.internalRoom.isRevealed) {
+            revealVotesInRoom(this.internalRoom);
+            this.broadcastHostState();
+          }
           break;
         }
 
@@ -421,60 +473,64 @@ export class P2PRoomManager {
         }
 
         case 'update_story': {
-          updateStoryInRoom(this.internalRoom, msg.payload.storyTitle);
-          this.broadcastHostState();
+          if (!isPlainObject(typedMsg.payload)) return;
+          if (updateStoryInRoom(this.internalRoom, typedMsg.payload.storyTitle)) {
+            this.broadcastHostState();
+          }
           break;
         }
 
         case 'change_deck': {
-          changeDeckInRoom(this.internalRoom, msg.payload.deckType);
-          this.broadcastHostState();
+          if (!isPlainObject(typedMsg.payload)) return;
+          if (changeDeckInRoom(this.internalRoom, typedMsg.payload.deckType)) {
+            this.broadcastHostState();
+          }
           break;
         }
 
         case 'toggle_spectator': {
-          toggleSpectatorInRoom(this.internalRoom, senderId, msg.payload.isSpectator);
-          this.broadcastHostState();
+          if (!isPlainObject(typedMsg.payload)) return;
+          if (toggleSpectatorInRoom(this.internalRoom, senderId, typedMsg.payload.isSpectator)) {
+            this.broadcastHostState();
+          }
           break;
         }
 
         case 'change_name': {
-          changeNameInRoom(
-            this.internalRoom,
-            senderId,
-            msg.payload.name,
-            msg.payload.avatarColor
-          );
-          this.broadcastHostState();
+          if (!isPlainObject(typedMsg.payload)) return;
+          if (
+            changeNameInRoom(
+              this.internalRoom,
+              senderId,
+              typedMsg.payload.name,
+              typedMsg.payload.avatarColor
+            )
+          ) {
+            this.broadcastHostState();
+          }
           break;
         }
 
         case 'leave': {
-          const mappedSocketId = this.peerToSocketId.get(senderPeerId);
-          const removedBySender = removeUserFromRoom(this.internalRoom, senderId);
-          const removedByPeer =
-            mappedSocketId && mappedSocketId !== senderId
-              ? removeUserFromRoom(this.internalRoom, mappedSocketId)
-              : false;
-          if (removedBySender || removedByPeer) {
+          if (removeUserFromRoom(this.internalRoom, senderId)) {
             this.broadcastHostState();
           }
           break;
         }
       }
     } else if (!this.isHost) {
-      if ((msg as any).type === 'internal_room_sync') {
-        const data = (msg as any).payload;
-        const reconstructedRoom: InternalRoom = {
-          ...data,
-          users: new Map(data.users),
-        };
-        const myState = sanitizeRoomState(reconstructedRoom, this.localSocketId);
-        this.onStateChange(myState);
-      } else if (msg.type === 'room_state') {
-        this.onStateChange(msg.payload);
-      } else if (msg.type === 'leave' && this.lastKnownState) {
-        const leavingId = msg.payload.senderId;
+      if (typedMsg.type === 'room_state' && isPlainObject(typedMsg.payload)) {
+        const incomingState = typedMsg.payload as RoomState;
+        if (!incomingState.isRevealed && this.currentVote !== null) {
+          const hydratedParticipants = incomingState.participants.map((p) =>
+            p.id === this.localSocketId ? { ...p, vote: this.currentVote, hasVoted: true } : p
+          );
+          this.onStateChange({ ...incomingState, participants: hydratedParticipants });
+        } else {
+          this.onStateChange(incomingState);
+        }
+      } else if (typedMsg.type === 'leave' && isPlainObject(typedMsg.payload) && this.lastKnownState) {
+        const leavingId = typedMsg.payload.senderId;
         const remaining = this.lastKnownState.participants.filter((p) => p.id !== leavingId);
         if (remaining.length !== this.lastKnownState.participants.length) {
           const wasHost = this.lastKnownState.hostId === leavingId;
@@ -493,7 +549,7 @@ export class P2PRoomManager {
     }
   }
 
-  // Guest actions dispatched to host (and broadcast channel)
+  // Guest actions dispatched to host (and broadcast channel fallback)
   public sendAction(action: P2PMessage) {
     if (action.type === 'cast_vote') {
       this.currentVote = action.payload.vote;
@@ -505,9 +561,7 @@ export class P2PRoomManager {
       this.handleIncomingMessage(action, this.localSocketId);
     } else if (this.hostConnection && this.hostConnection.open) {
       this.hostConnection.send(action);
-    }
-
-    if (this.broadcastChannel) {
+    } else if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage(action);
       } catch {

@@ -86,6 +86,12 @@ async function testPokerFlow() {
     socket1.on('room_state', handler);
   });
 
+  // Security: emit malformed/null payloads to ensure server does not crash
+  socket2.emit('join_room', null);
+  socket2.emit('cast_vote', null);
+  socket2.emit('cast_vote', { vote: 'INVALID_CARD_999' });
+  socket2.emit('change_name', { name: 12345 });
+
   socket2.emit('leave_room');
   const finalStateForAlice = await stateAfterBobLeaves;
   if (finalStateForAlice.participants.some((p) => p.name === 'Bob')) {

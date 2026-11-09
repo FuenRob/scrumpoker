@@ -1,3 +1,5 @@
+import { generateSecureId, sanitizeUserId } from './validation';
+
 export const STORAGE_KEYS = {
   USER_ID: 'scrumpoker_user_id',
   USERNAME: 'scrumpoker_username',
@@ -12,14 +14,15 @@ export const STORAGE_KEYS = {
  */
 export function getStoredUserId(): string {
   try {
-    let id = localStorage.getItem(STORAGE_KEYS.USER_ID);
+    const raw = localStorage.getItem(STORAGE_KEYS.USER_ID);
+    let id = sanitizeUserId(raw);
     if (!id) {
-      id = 'usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+      id = `usr_${generateSecureId(16)}`;
       localStorage.setItem(STORAGE_KEYS.USER_ID, id);
     }
     return id;
   } catch {
-    return 'usr_' + Date.now().toString(36);
+    return `usr_${generateSecureId(16)}`;
   }
 }
 

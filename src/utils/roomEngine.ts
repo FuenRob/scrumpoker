@@ -1,5 +1,17 @@
 import type { DeckType, HistoryItem, RoomState } from '../types';
 import { buildHistoryRecord } from './stats';
+import {
+  LIMITS,
+  isValidDeckType,
+  isValidVoteForDeck,
+  sanitizeAvatarColor,
+  sanitizeDeckType,
+  sanitizeRoomId,
+  sanitizeRoomName,
+  sanitizeStoryTitle,
+  sanitizeUserId,
+  sanitizeUserName,
+} from './validation';
 
 export interface InternalUser {
   socketId: string;
@@ -27,11 +39,11 @@ export function createRoom(
   deckType: DeckType = 'modified-fibonacci',
   hostSocketId = ''
 ): InternalRoom {
-  const cleanId = id.trim().toLowerCase();
+  const cleanId = sanitizeRoomId(id) || 'default';
   return {
     id: cleanId,
-    name: name || `Sala ${cleanId.toUpperCase()}`,
-    deckType,
+    name: sanitizeRoomName(name, cleanId),
+    deckType: sanitizeDeckType(deckType),
     storyTitle: '',
     isRevealed: false,
     users: new Map(),
@@ -42,18 +54,21 @@ export function createRoom(
 
 export function hydrateRoomFromState(state: RoomState, hostSocketId: string): InternalRoom {
   const room = createRoom(state.roomId, state.roomName, state.deckType, hostSocketId);
-  room.storyTitle = state.storyTitle || '';
+  room.storyTitle = sanitizeStoryTitle(state.storyTitle);
   room.isRevealed = !!state.isRevealed;
-  room.history = Array.isArray(state.history) ? [...state.history] : [];
+  room.history = Array.isArray(state.history) ? state.history.slice(0, 20) : [];
 
-  for (const p of state.participants) {
-    room.users.set(p.id, {
-      socketId: p.id,
-      name: p.name,
-      avatarColor: p.avatarColor,
-      isSpectator: p.isSpectator,
-      vote: p.vote,
-    });
+  if (Array.isArray(state.participants)) {
+    for (const p of state.participants.slice(0, LIMITS.MAX_USERS_PER_ROOM)) {
+      if (!p || typeof p.id !== 'string') continue;
+      room.users.set(p.id, {
+        socketId: p.id,
+        name: sanitizeUserName(p.name),
+        avatarColor: sanitizeAvatarColor(p.avatarColor),
+        isSpectator: !!p.isSpectator,
+        vote: isValidVoteForDeck(p.vote, room.deckType) ? p.vote : null,
+      });
+    }
   }
 
   return room;
@@ -64,8 +79,8 @@ export function sanitizeRoomState(room: InternalRoom, recipientSocketId: string)
   const participants = [];
 
   for (const user of room.users.values()) {
-    // Deduplicate by userId or lowercase name
-    const uniqueKey = (user.userId || user.name).trim().toLowerCase();
+    // Deduplicate by persistent userId or socketId (allows distinct users with same display name)
+    const uniqueKey = (user.userId || user.socketId).trim().toLowerCase();
     if (seenUserKeys.has(uniqueKey)) {
       continue;
     }
@@ -121,27 +136,34 @@ export function addUserToRoom(
     isSpectator?: boolean;
     vote?: string | null;
   }
-): void {
-  const cleanName = user.name.trim() || 'Anónimo';
+): boolean {
+  const cleanName = sanitizeUserName(user.name);
   const cleanNameLower = cleanName.toLowerCase();
+  const cleanUserId = sanitizeUserId(user.userId);
 
-  // Find if a participant with the same userId OR the same name already exists
+  // Match existing session ONLY by socketId, matching secret userId, or legacy unnamed session without userId
   let existingKey: string | null = null;
   for (const [key, existing] of room.users.entries()) {
-    const isSameUserId = !!(user.userId && existing.userId && user.userId === existing.userId);
-    const isSameName = existing.name.trim().toLowerCase() === cleanNameLower;
     const isSameSocket = key === user.socketId;
+    const isSameUserId = Boolean(cleanUserId && existing.userId && cleanUserId === existing.userId);
+    const isUnauthenticatedSameName =
+      !existing.userId && existing.name.trim().toLowerCase() === cleanNameLower;
 
-    if (isSameUserId || isSameName || isSameSocket) {
+    if (isSameSocket || isSameUserId || isUnauthenticatedSameName) {
       existingKey = key;
       break;
     }
   }
 
+  if (!existingKey && room.users.size >= LIMITS.MAX_USERS_PER_ROOM) {
+    return false;
+  }
+
   // Preserve existing vote and avatar if re-joining on refresh
   const prevUser = existingKey ? room.users.get(existingKey) : null;
-  const vote = user.vote !== undefined ? user.vote : (prevUser?.vote ?? null);
-  const avatarColor = user.avatarColor || prevUser?.avatarColor || '#6366f1';
+  const rawVote = user.vote !== undefined ? user.vote : (prevUser?.vote ?? null);
+  const vote = isValidVoteForDeck(rawVote, room.deckType) ? rawVote : null;
+  const avatarColor = sanitizeAvatarColor(user.avatarColor || prevUser?.avatarColor);
   const isSpectator =
     user.isSpectator !== undefined ? !!user.isSpectator : (prevUser?.isSpectator ?? false);
 
@@ -152,11 +174,11 @@ export function addUserToRoom(
 
   room.users.set(user.socketId, {
     socketId: user.socketId,
-    userId: user.userId || prevUser?.userId,
+    userId: cleanUserId || prevUser?.userId,
     name: cleanName,
     avatarColor,
     isSpectator,
-    vote,
+    vote: isSpectator ? null : vote,
   });
 
   // Preserve host role if the previous user was host
@@ -167,6 +189,8 @@ export function addUserToRoom(
   ) {
     room.hostSocketId = user.socketId;
   }
+
+  return true;
 }
 
 export function removeUserFromRoom(room: InternalRoom, socketOrUserId: string): boolean {
@@ -194,8 +218,14 @@ export function removeUserFromRoom(room: InternalRoom, socketOrUserId: string): 
   return true;
 }
 
-export function castVoteInRoom(room: InternalRoom, socketId: string, vote: string | null): boolean {
+export function castVoteInRoom(
+  room: InternalRoom,
+  socketId: string,
+  vote: unknown
+): boolean {
   if (room.isRevealed) return false;
+  if (!isValidVoteForDeck(vote, room.deckType)) return false;
+
   const user = findUserInRoom(room, socketId);
   if (!user || user.isSpectator) return false;
   user.vote = vote;
@@ -222,41 +252,49 @@ export function resetVotesInRoom(room: InternalRoom): void {
   });
 }
 
-export function updateStoryInRoom(room: InternalRoom, storyTitle: string): void {
-  room.storyTitle = storyTitle;
+export function updateStoryInRoom(room: InternalRoom, storyTitle: unknown): boolean {
+  if (typeof storyTitle !== 'string') return false;
+  room.storyTitle = sanitizeStoryTitle(storyTitle);
+  return true;
 }
 
-export function changeDeckInRoom(room: InternalRoom, deckType: DeckType): void {
+export function changeDeckInRoom(room: InternalRoom, deckType: unknown): boolean {
+  if (!isValidDeckType(deckType)) return false;
   room.deckType = deckType;
   room.isRevealed = false;
   room.users.forEach((u) => {
     u.vote = null;
   });
+  return true;
 }
 
 export function toggleSpectatorInRoom(
   room: InternalRoom,
   socketId: string,
-  isSpectator: boolean
-): void {
+  isSpectator: unknown
+): boolean {
+  if (typeof isSpectator !== 'boolean') return false;
   const user = findUserInRoom(room, socketId);
-  if (!user) return;
+  if (!user) return false;
   user.isSpectator = isSpectator;
   if (isSpectator) {
     user.vote = null;
   }
+  return true;
 }
 
 export function changeNameInRoom(
   room: InternalRoom,
   socketId: string,
-  name: string,
-  avatarColor?: string
-): void {
+  name: unknown,
+  avatarColor?: unknown
+): boolean {
+  if (typeof name !== 'string') return false;
   const user = findUserInRoom(room, socketId);
-  if (!user) return;
-  user.name = name.trim() || 'Anónimo';
-  if (avatarColor) {
-    user.avatarColor = avatarColor;
+  if (!user) return false;
+  user.name = sanitizeUserName(name);
+  if (avatarColor !== undefined) {
+    user.avatarColor = sanitizeAvatarColor(avatarColor, user.avatarColor);
   }
+  return true;
 }

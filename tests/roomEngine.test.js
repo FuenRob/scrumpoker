@@ -9,6 +9,7 @@ import {
   changeNameInRoom,
   sanitizeRoomState,
 } from '../src/utils/roomEngine.ts';
+import { escapeMarkdownCell } from '../src/utils/validation.ts';
 
 console.log('--- Testing Room Engine & State Synchronization ---');
 
@@ -157,5 +158,54 @@ if (updatedHost?.name !== 'Bob Nuevo Host' || updatedHost?.avatarColor !== '#10b
   throw new Error('Expected changeNameInRoom to update both name and avatarColor');
 }
 console.log('✓ P2P host state hydration & profile color update verified');
+
+// 11. Security: Prevent Host/Identity hijacking when two distinct users share the same name
+const secRoom = createRoom('sec-room', 'Security Room', 'modified-fibonacci');
+addUserToRoom(secRoom, {
+  socketId: 'socket-carlos-1',
+  userId: 'usr_carlos_original',
+  name: 'Carlos',
+  avatarColor: '#3b82f6',
+  isSpectator: false,
+});
+castVoteInRoom(secRoom, 'socket-carlos-1', '13');
+
+// A second person also named "Carlos" (with a different userId) joins the room
+addUserToRoom(secRoom, {
+  socketId: 'socket-carlos-2',
+  userId: 'usr_carlos_second',
+  name: 'Carlos',
+  avatarColor: 'red; background:url(evil)', // CSS injection attempt
+  isSpectator: false,
+});
+
+const secView = sanitizeRoomState(secRoom, 'socket-carlos-1');
+if (secView.participants.length !== 2) {
+  throw new Error(`Expected both Carlos users to coexist (2 participants), got ${secView.participants.length}`);
+}
+if (secRoom.hostSocketId !== 'socket-carlos-1') {
+  throw new Error('Host role must NOT be hijacked by another user with the same name');
+}
+const carlos1 = secView.participants.find((p) => p.id === 'socket-carlos-1');
+const carlos2 = secView.participants.find((p) => p.id === 'socket-carlos-2');
+if (carlos1?.vote !== '13') {
+  throw new Error('Original Carlos vote must not be overwritten');
+}
+if (carlos2?.avatarColor !== '#6366f1') {
+  throw new Error(`Expected invalid avatarColor to be sanitized to #6366f1, got ${carlos2?.avatarColor}`);
+}
+
+// 12. Security: Reject invalid votes not in the active deck
+const invalidVoteAccepted = castVoteInRoom(secRoom, 'socket-carlos-2', '9999');
+if (invalidVoteAccepted) {
+  throw new Error('Expected invalid card vote "9999" to be rejected');
+}
+
+// 13. Security: Escape Markdown table injection characters
+const escapedMd = escapeMarkdownCell('US-10 | Inyección\nNueva línea');
+if (escapedMd !== 'US-10 \\| Inyección Nueva línea') {
+  throw new Error(`Unexpected escaped markdown cell: ${escapedMd}`);
+}
+console.log('✓ Security checks (anti-hijacking, vote validation, color sanitization, Markdown escaping) verified');
 
 console.log('--- ALL ROOM ENGINE TESTS PASSED! ---');

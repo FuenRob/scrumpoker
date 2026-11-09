@@ -1,4 +1,5 @@
 import type { HistoryItem, Participant, VoteStats } from '../types';
+import { generateSecureId } from './validation';
 
 export interface VoteableUser {
   name: string;
@@ -83,7 +84,7 @@ export function buildHistoryRecord(
   const stats = calculateVoteStats(voters);
 
   return {
-    id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    id: `hist_${Date.now()}_${generateSecureId(6)}`,
     storyTitle: storyTitle.trim() || 'Estimación sin título',
     timestamp: Date.now(),
     average: stats.average,
@@ -100,6 +101,7 @@ export function isParticipantSelf(
   if (currentSocketId && participant.id === currentSocketId) return true;
   if (participant.id === 'user-self') return true;
   if (
+    (!currentSocketId || currentSocketId === 'user-self') &&
     currentUserName &&
     participant.name.trim().toLowerCase() === currentUserName.trim().toLowerCase()
   ) {
@@ -126,10 +128,5 @@ export function getRandomAvatarColor(): string {
 }
 
 export function generateRoomId(): string {
-  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
-  let result = '';
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  return generateSecureId(6);
 }
