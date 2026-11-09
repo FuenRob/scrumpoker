@@ -185,7 +185,7 @@ export function App() {
   // If in room, render active room view
   if (roomId && roomState) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-white font-sans transition-colors duration-150">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-white font-sans transition-colors duration-150 overflow-x-hidden">
         {/* Header */}
         <Header
           roomState={roomState}
@@ -209,7 +209,11 @@ export function App() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col justify-center items-center py-4 w-full">
+        <main
+          className={`flex-1 flex flex-col justify-center items-center py-4 w-full transition-[padding] duration-500 ease-in-out ${
+            roomState.isRevealed ? 'pb-8' : 'pb-36 sm:pb-44'
+          }`}
+        >
           {/* Poker Table */}
           <PokerTable
             roomState={roomState}

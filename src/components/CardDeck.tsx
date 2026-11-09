@@ -26,7 +26,13 @@ export const CardDeck: React.FC<CardDeckProps> = ({
 
   if (isSpectator) {
     return (
-      <div className="w-full bg-white/90 dark:bg-zinc-950/90 border-t border-zinc-200 dark:border-zinc-800/80 backdrop-blur-md pt-6 pb-6 px-4 sticky bottom-0 z-30 font-sans transition-colors duration-150">
+      <div
+        className={`w-full fixed bottom-0 left-0 right-0 z-30 bg-white/90 dark:bg-zinc-950/90 border-t border-zinc-200 dark:border-zinc-800/80 backdrop-blur-md pt-6 pb-6 px-4 font-sans transition-all duration-500 ease-in-out will-change-transform ${
+          isRevealed
+            ? 'translate-y-full opacity-0 pointer-events-none'
+            : 'translate-y-0 opacity-100 pointer-events-auto'
+        }`}
+      >
         <div className="max-w-md mx-auto flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400">
@@ -53,7 +59,13 @@ export const CardDeck: React.FC<CardDeckProps> = ({
   }
 
   return (
-    <div className="w-full bg-white/95 dark:bg-zinc-950/95 border-t border-zinc-200 dark:border-zinc-800/80 backdrop-blur-md pt-7 pb-6 sm:pt-9 sm:pb-8 px-2 sm:px-6 sticky bottom-0 z-30 font-sans shadow-[0_-8px_25px_rgba(0,0,0,0.03)] dark:shadow-[0_-8px_25px_rgba(0,0,0,0.5)] transition-colors duration-150">
+    <div
+      className={`w-full fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-zinc-950/95 border-t border-zinc-200 dark:border-zinc-800/80 backdrop-blur-md pt-7 pb-6 sm:pt-9 sm:pb-8 px-2 sm:px-6 font-sans shadow-[0_-8px_25px_rgba(0,0,0,0.03)] dark:shadow-[0_-8px_25px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out will-change-transform ${
+        isRevealed
+          ? 'translate-y-full opacity-0 pointer-events-none'
+          : 'translate-y-0 opacity-100 pointer-events-auto'
+      }`}
+    >
       <div className="max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto flex flex-col items-center gap-3">
         {/* Minimalist status bar */}
         <div className="w-full flex items-center justify-between text-xs px-2 font-light">
