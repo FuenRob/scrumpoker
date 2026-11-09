@@ -10,10 +10,12 @@ import {
   Sparkles,
   Sun,
   Moon,
+  ShieldCheck,
 } from 'lucide-react';
 import { DECKS, type RoomState, type DeckType } from '../types';
 import type { Theme } from '../hooks/useTheme';
 import { CrabIcon } from './CrabIcon';
+import type { LegalTab } from './LegalModal';
 
 interface HeaderProps {
   roomState: RoomState;
@@ -34,6 +36,7 @@ interface HeaderProps {
   isSimulated: boolean;
   crabMode?: boolean;
   onToggleCrabMode?: () => void;
+  onOpenLegal?: (tab: LegalTab) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -55,6 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
   isSimulated,
   crabMode = false,
   onToggleCrabMode,
+  onOpenLegal,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isEditingStory, setIsEditingStory] = useState(false);
@@ -240,6 +244,15 @@ export const Header: React.FC<HeaderProps> = ({
               {isSpectator && <span className="text-[10px] text-zinc-500 ml-1 font-light">(Obs)</span>}
             </span>
             <Edit2 className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500 hidden sm:inline" />
+          </button>
+
+          {/* Legal & Privacy modal */}
+          <button
+            onClick={() => onOpenLegal?.('notice')}
+            title="Información legal y privacidad"
+            className="p-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-200 border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4 stroke-[1.5]" />
           </button>
 
           {/* Leave room */}

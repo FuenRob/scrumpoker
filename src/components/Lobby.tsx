@@ -9,6 +9,8 @@ import { DECKS, type DeckType } from '../types';
 import type { Theme } from '../hooks/useTheme';
 import { generateRoomId } from '../utils/stats';
 import { CrabIcon } from './CrabIcon';
+import type { LegalTab } from './LegalModal';
+import { PreFooter } from './PreFooter';
 
 interface LobbyProps {
   onCreateRoom: (roomId: string, roomName: string, deckType: DeckType) => void;
@@ -20,6 +22,7 @@ interface LobbyProps {
   onToggleTheme: () => void;
   onOpenNameModal: () => void;
   onToggleCrabMode?: () => void;
+  onOpenLegal?: (tab: LegalTab) => void;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({
@@ -32,6 +35,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   onToggleTheme,
   onOpenNameModal,
   onToggleCrabMode,
+  onOpenLegal,
 }) => {
   const [roomName, setRoomName] = useState('');
   const [deckType, setDeckType] = useState<DeckType>('modified-fibonacci');
@@ -278,19 +282,11 @@ export const Lobby: React.FC<LobbyProps> = ({
         </div>
       </main>
 
-      <footer className="max-w-4xl w-full mx-auto px-6 py-6 text-center text-xs text-zinc-500 dark:text-zinc-500 border-t border-zinc-200 dark:border-zinc-900 font-light flex items-center justify-center gap-1 flex-wrap">
-        <span>Hecho con</span>
-        <span className="text-rose-500 mx-0.5 inline-block select-none" role="img" aria-label="corazón">❤️</span>
-        <span>por</span>
-        <a
-          href="https://github.com/FuenRob"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition-colors underline-offset-2 hover:underline"
-        >
-          Roberto Morais (FuenRob)
-        </a>
-      </footer>
+      {/* Prefooter con Información Legal y Transparencia */}
+      <PreFooter
+        onOpenLegal={onOpenLegal || (() => {})}
+        crabMode={crabMode}
+      />
     </div>
   );
 };

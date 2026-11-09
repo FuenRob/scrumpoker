@@ -99,3 +99,17 @@ Para validar el flujo completo de sincronización en tiempo real (unión a sala,
 # Con el servidor arrancado en segundo plano
 pnpm test
 ```
+
+---
+
+## ⚖️ Privacidad y Cumplimiento Legal
+
+Scrum Poker cumple estrictamente con el marco legal aplicable en España y la Unión Europea (**RGPD / GDPR**, **LOPDGDD**, **LSSI-CE** y **Directiva ePrivacy**):
+
+- 🏛️ **[Aviso Legal](./docs/legal/AVISO-LEGAL.md)**: Información del titular (Roberto Morais / FuenRob), licencia de software libre y limitación de responsabilidad.
+- 🔒 **[Política de Privacidad](./docs/legal/POLITICA-DE-PRIVACIDAD.md)**: Privacidad por diseño: sin registros ni contraseñas, voto secreto enmascarado en el servidor y tratamiento efímero en memoria volátil.
+- 🍪 **[Política de Cookies y Almacenamiento Local](./docs/legal/POLITICA-DE-COOKIES.md)**: Zero tracking publicitario. Uso exclusivo de `localStorage` para preferencias y persistencia de sesión sin cookies de terceros invasivas (exento de banner intrusivo según Art. 22.2 LSSI).
+- 📜 **[Términos y Condiciones de Uso](./docs/legal/TERMINOS-DE-USO.md)**: Normas de conducta y uso aceptable de las salas virtuales.
+
+Consulta el compendio completo en **[LEGAL.md](./LEGAL.md)** o directamente desde el pie de página de la aplicación web.
+

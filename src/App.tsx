@@ -9,6 +9,7 @@ import { CardDeck } from './components/CardDeck';
 import { StatsPanel } from './components/StatsPanel';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { NameModal } from './components/NameModal';
+import { LegalModal, type LegalTab } from './components/LegalModal';
 import { Toast, type ToastMessage } from './components/Toast';
 import { CrabSwarm } from './components/CrabSwarm';
 import type { DeckType } from './types';
@@ -28,7 +29,27 @@ export function App() {
     return null;
   };
 
+  const getLegalTabFromUrl = (): LegalTab | null => {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    const legalParam = params.get('legal')?.toLowerCase();
+
+    if (legalParam === 'privacy' || legalParam === 'privacidad') return 'privacy';
+    if (legalParam === 'cookies') return 'cookies';
+    if (legalParam === 'terms' || legalParam === 'terminos') return 'terms';
+    if (legalParam === 'notice' || legalParam === 'aviso' || legalParam === 'legal') return 'notice';
+
+    if (hash.includes('privacidad') || hash.includes('privacy')) return 'privacy';
+    if (hash.includes('cookies') || hash.includes('cookie')) return 'cookies';
+    if (hash.includes('terminos') || hash.includes('terms')) return 'terms';
+    if (hash.includes('aviso') || hash.includes('legal-notice') || hash.includes('aviso-legal')) return 'notice';
+
+    return null;
+  };
+
   const [urlRoomId, setUrlRoomId] = useState<string | null>(getRoomIdFromUrl);
+  const [legalTab, setLegalTab] = useState<LegalTab | null>(getLegalTabFromUrl);
   const [isNameModalOpen, setIsNameModalOpen] = useState<boolean>(() => !getStoredUserName());
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -94,6 +115,7 @@ export function App() {
       } else if (!current && roomId) {
         leaveRoom();
       }
+      setLegalTab(getLegalTabFromUrl());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -182,6 +204,11 @@ export function App() {
     }, 200);
   };
 
+  const handleDataCleared = () => {
+    setIsNameModalOpen(true);
+    addToast('info', 'Se han restablecido y eliminado todos los datos de almacenamiento local.');
+  };
+
   const isActiveRoom = Boolean(roomId && roomState);
 
   return (
@@ -208,6 +235,7 @@ export function App() {
             onAddBots={addDemoBots}
             isSimulated={isSimulated}
             onToggleCrabMode={toggleCrabMode}
+            onOpenLegal={(tab) => setLegalTab(tab)}
           />
 
           {/* Main Content Area */}
@@ -261,6 +289,7 @@ export function App() {
           onToggleTheme={toggleTheme}
           onOpenNameModal={() => setIsNameModalOpen(true)}
           onToggleCrabMode={toggleCrabMode}
+          onOpenLegal={(tab) => setLegalTab(tab)}
         />
       )}
 
@@ -275,6 +304,16 @@ export function App() {
           targetRoomId={urlRoomId || (!roomState ? roomId : null)}
           onSave={handleSaveProfile}
           onClose={() => setIsNameModalOpen(false)}
+        />
+      )}
+
+      {/* Legal & Compliance Modal */}
+      {legalTab && (
+        <LegalModal
+          isOpen={Boolean(legalTab)}
+          initialTab={legalTab}
+          onClose={() => setLegalTab(null)}
+          onDataCleared={handleDataCleared}
         />
       )}
 
