@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 
 async function testPokerFlow() {
   console.log('--- Testing Scrum Poker Real-Time WebSocket Flow ---');
-  const serverUrl = 'http://localhost:3001';
+  const serverUrl = process.env.SERVER_URL || 'http://localhost:3001';
 
   const socket1 = io(serverUrl);
   const socket2 = io(serverUrl);
@@ -74,6 +74,24 @@ async function testPokerFlow() {
     });
   });
   console.log('✓ Reset votes successfully. isRevealed:', stateReset.isRevealed);
+
+  // Bob leaves the room explicitly (clicking "Salir de la sala" while keeping socket open)
+  const stateAfterBobLeaves = new Promise((resolve) => {
+    const handler = (state) => {
+      if (state.participants.length === 1) {
+        socket1.off('room_state', handler);
+        resolve(state);
+      }
+    };
+    socket1.on('room_state', handler);
+  });
+
+  socket2.emit('leave_room');
+  const finalStateForAlice = await stateAfterBobLeaves;
+  if (finalStateForAlice.participants.some((p) => p.name === 'Bob')) {
+    throw new Error('Bob should have been removed from the room after emitting leave_room');
+  }
+  console.log('✓ Explicit leave_room removes participant from other sessions immediately');
 
   socket1.disconnect();
   socket2.disconnect();

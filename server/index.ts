@@ -4,6 +4,21 @@ import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import type { DeckType } from '../src/types.ts';
+import {
+  createRoom,
+  sanitizeRoomState,
+  addUserToRoom,
+  removeUserFromRoom,
+  castVoteInRoom,
+  revealVotesInRoom,
+  resetVotesInRoom,
+  updateStoryInRoom,
+  changeDeckInRoom,
+  toggleSpectatorInRoom,
+  changeNameInRoom,
+  type InternalRoom,
+} from '../src/utils/roomEngine.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,118 +35,49 @@ const io = new Server(server, {
   },
 });
 
-type DeckType = 'modified-fibonacci' | 'fibonacci' | 'tshirt' | 'powers-of-2';
-
-interface ServerUser {
-  socketId: string;
-  userId?: string;
-  name: string;
-  avatarColor: string;
-  isSpectator: boolean;
-  vote: string | null;
-}
-
-interface HistoryItem {
-  id: string;
-  storyTitle: string;
-  timestamp: number;
-  average: number | null;
-  agreementPercentage: number;
-  votes: { name: string; vote: string }[];
-}
-
-interface ServerRoom {
-  id: string;
-  name: string;
-  deckType: DeckType;
-  storyTitle: string;
-  isRevealed: boolean;
-  users: Map<string, ServerUser>;
-  history: HistoryItem[];
-  hostSocketId: string;
-}
-
-const rooms = new Map<string, ServerRoom>();
+const rooms = new Map<string, InternalRoom>();
 const socketToRoom = new Map<string, string>();
+const roomCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-function sanitizeRoomState(room: ServerRoom, recipientSocketId: string) {
-  const seenUserKeys = new Set<string>();
-  const participants = [];
-
-  for (const user of room.users.values()) {
-    const uniqueKey = (user.userId || user.name).trim().toLowerCase();
-    if (seenUserKeys.has(uniqueKey)) {
-      continue;
-    }
-    seenUserKeys.add(uniqueKey);
-
-    const isSelf = user.socketId === recipientSocketId;
-    participants.push({
-      id: user.socketId,
-      name: user.name,
-      avatarColor: user.avatarColor,
-      isSpectator: user.isSpectator,
-      hasVoted: user.vote !== null,
-      vote: room.isRevealed || isSelf ? user.vote : null,
-      isHost: user.socketId === room.hostSocketId,
-    });
-  }
-
-  return {
-    roomId: room.id,
-    roomName: room.name,
-    storyTitle: room.storyTitle,
-    deckType: room.deckType,
-    isRevealed: room.isRevealed,
-    participants,
-    history: room.history,
-    hostId: room.hostSocketId,
-  };
-}
-
-function broadcastRoomState(room: ServerRoom) {
+function broadcastRoomState(room: InternalRoom) {
   room.users.forEach((_, socketId) => {
     const state = sanitizeRoomState(room, socketId);
     io.to(socketId).emit('room_state', state);
   });
 }
 
-function calculateHistoryRecord(room: ServerRoom): HistoryItem | null {
-  const voters = Array.from(room.users.values()).filter((u) => !u.isSpectator && u.vote !== null);
-  if (voters.length === 0) return null;
+function getRoomForSocket(socketId: string): InternalRoom | undefined {
+  const roomId = socketToRoom.get(socketId);
+  return roomId ? rooms.get(roomId) : undefined;
+}
 
-  const numericVotes: number[] = [];
-  const distribution: Record<string, number> = {};
+function handleSocketLeaveRoom(socket: Socket) {
+  const roomId = socketToRoom.get(socket.id);
+  if (!roomId) return;
+  socketToRoom.delete(socket.id);
+  socket.leave(roomId);
 
-  for (const v of voters) {
-    if (!v.vote) continue;
-    distribution[v.vote] = (distribution[v.vote] || 0) + 1;
-    const num = parseFloat(v.vote);
-    if (!isNaN(num) && v.vote !== '?' && v.vote !== '☕' && v.vote !== '🦀') {
-      numericVotes.push(num);
-    }
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  removeUserFromRoom(room, socket.id);
+
+  if (room.users.size === 0) {
+    // Clean up empty room after 5 minutes
+    const existingTimer = roomCleanupTimers.get(roomId);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    const timer = setTimeout(() => {
+      roomCleanupTimers.delete(roomId);
+      const checkRoom = rooms.get(roomId);
+      if (checkRoom && checkRoom.users.size === 0) {
+        rooms.delete(roomId);
+      }
+    }, 5 * 60 * 1000);
+    roomCleanupTimers.set(roomId, timer);
+  } else {
+    broadcastRoomState(room);
   }
-
-  let average: number | null = null;
-  if (numericVotes.length > 0) {
-    const sum = numericVotes.reduce((a, b) => a + b, 0);
-    average = Math.round((sum / numericVotes.length) * 10) / 10;
-  }
-
-  let maxFreq = 0;
-  for (const freq of Object.values(distribution)) {
-    if (freq > maxFreq) maxFreq = freq;
-  }
-  const agreementPercentage = Math.round((maxFreq / voters.length) * 100);
-
-  return {
-    id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    storyTitle: room.storyTitle.trim() || 'Estimación sin título',
-    timestamp: Date.now(),
-    average,
-    agreementPercentage,
-    votes: voters.map((v) => ({ name: v.name, vote: v.vote! })),
-  };
 }
 
 io.on('connection', (socket: Socket) => {
@@ -156,62 +102,41 @@ io.on('connection', (socket: Socket) => {
       deckType?: DeckType;
     }) => {
       const cleanRoomId = roomId.trim().toLowerCase();
+      const previousRoomId = socketToRoom.get(socket.id);
+      if (previousRoomId && previousRoomId !== cleanRoomId) {
+        handleSocketLeaveRoom(socket);
+      }
+
       let room = rooms.get(cleanRoomId);
 
+      const pendingTimer = roomCleanupTimers.get(cleanRoomId);
+      if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        roomCleanupTimers.delete(cleanRoomId);
+      }
+
       if (!room) {
-        room = {
-          id: cleanRoomId,
-          name: roomName || `Sala ${cleanRoomId.toUpperCase()}`,
-          deckType: deckType || 'modified-fibonacci',
-          storyTitle: '',
-          isRevealed: false,
-          users: new Map(),
-          history: [],
-          hostSocketId: socket.id,
-        };
+        room = createRoom(cleanRoomId, roomName, deckType, socket.id);
         rooms.set(cleanRoomId, room);
       }
 
       socket.join(cleanRoomId);
       socketToRoom.set(socket.id, cleanRoomId);
 
-      const cleanName = name.trim() || 'Anónimo';
-      const cleanNameLower = cleanName.toLowerCase();
-
-      // Look for existing participant with same userId, same name, or same socket
-      let existingSocketId: string | null = null;
-      for (const [sId, u] of room.users.entries()) {
-        const isSame =
-          (userId && u.userId && u.userId === userId) ||
-          u.name.trim().toLowerCase() === cleanNameLower ||
-          sId === socket.id;
-        if (isSame) {
-          existingSocketId = sId;
-          break;
-        }
-      }
-
-      const prevUser = existingSocketId ? room.users.get(existingSocketId) : null;
-      if (existingSocketId && existingSocketId !== socket.id) {
-        room.users.delete(existingSocketId);
-        socketToRoom.delete(existingSocketId);
-      }
-
-      room.users.set(socket.id, {
+      const previousSocketIds = new Set(room.users.keys());
+      addUserToRoom(room, {
         socketId: socket.id,
-        userId: userId || prevUser?.userId,
-        name: cleanName,
-        avatarColor: avatarColor || prevUser?.avatarColor || '#6366f1',
-        isSpectator: isSpectator !== undefined ? !!isSpectator : (prevUser?.isSpectator ?? false),
-        vote: prevUser?.vote ?? null,
+        userId,
+        name,
+        avatarColor,
+        isSpectator,
       });
 
-      // If no host exists, previous host left, or rejoining user was host
-      if (
-        !room.users.has(room.hostSocketId) ||
-        existingSocketId === room.hostSocketId
-      ) {
-        room.hostSocketId = socket.id;
+      // Clean up socketToRoom if an old socket entry was replaced on rejoin
+      for (const oldSocketId of previousSocketIds) {
+        if (!room.users.has(oldSocketId)) {
+          socketToRoom.delete(oldSocketId);
+        }
       }
 
       broadcastRoomState(room);
@@ -220,144 +145,79 @@ io.on('connection', (socket: Socket) => {
 
   // Cast vote
   socket.on('cast_vote', ({ vote }: { vote: string | null }) => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    const room = rooms.get(roomId);
-    if (!room || room.isRevealed) return;
+    const room = getRoomForSocket(socket.id);
+    if (!room) return;
 
-    const user = room.users.get(socket.id);
-    if (!user || user.isSpectator) return;
-
-    user.vote = vote;
-    broadcastRoomState(room);
+    if (castVoteInRoom(room, socket.id, vote)) {
+      broadcastRoomState(room);
+    }
   });
 
   // Reveal votes
   socket.on('reveal_votes', () => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    const room = rooms.get(roomId);
+    const room = getRoomForSocket(socket.id);
     if (!room || room.isRevealed) return;
 
-    room.isRevealed = true;
-
-    // Save history record of this round
-    const record = calculateHistoryRecord(room);
-    if (record) {
-      room.history.unshift(record);
-      // Keep only last 20 records
-      if (room.history.length > 20) {
-        room.history.pop();
-      }
-    }
-
+    revealVotesInRoom(room);
     broadcastRoomState(room);
   });
 
   // Reset votes for next round
   socket.on('reset_votes', () => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    const room = rooms.get(roomId);
+    const room = getRoomForSocket(socket.id);
     if (!room) return;
 
-    room.isRevealed = false;
-    room.users.forEach((u) => {
-      u.vote = null;
-    });
-
+    resetVotesInRoom(room);
     broadcastRoomState(room);
   });
 
   // Update story / topic
   socket.on('update_story', ({ storyTitle }: { storyTitle: string }) => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    const room = rooms.get(roomId);
+    const room = getRoomForSocket(socket.id);
     if (!room) return;
 
-    room.storyTitle = storyTitle;
+    updateStoryInRoom(room, storyTitle);
     broadcastRoomState(room);
   });
 
   // Change deck type
   socket.on('change_deck', ({ deckType }: { deckType: DeckType }) => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    const room = rooms.get(roomId);
+    const room = getRoomForSocket(socket.id);
     if (!room) return;
 
-    room.deckType = deckType;
-    // Reset votes if deck changed to avoid invalid votes
-    room.isRevealed = false;
-    room.users.forEach((u) => {
-      u.vote = null;
-    });
-
+    changeDeckInRoom(room, deckType);
     broadcastRoomState(room);
   });
 
   // Toggle spectator mode
   socket.on('toggle_spectator', ({ isSpectator }: { isSpectator: boolean }) => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    const room = rooms.get(roomId);
+    const room = getRoomForSocket(socket.id);
     if (!room) return;
 
-    const user = room.users.get(socket.id);
-    if (!user) return;
-
-    user.isSpectator = isSpectator;
-    if (isSpectator) {
-      user.vote = null;
-    }
-
+    toggleSpectatorInRoom(room, socket.id, isSpectator);
     broadcastRoomState(room);
   });
 
-  // Change user name
-  socket.on('change_name', ({ name }: { name: string }) => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    const room = rooms.get(roomId);
-    if (!room) return;
+  // Change user name / avatar color
+  socket.on(
+    'change_name',
+    ({ name, avatarColor }: { name: string; avatarColor?: string }) => {
+      const room = getRoomForSocket(socket.id);
+      if (!room) return;
 
-    const user = room.users.get(socket.id);
-    if (!user) return;
+      changeNameInRoom(room, socket.id, name, avatarColor);
+      broadcastRoomState(room);
+    }
+  );
 
-    user.name = name.trim() || 'Anónimo';
-    broadcastRoomState(room);
+  // Explicit leave room (when user clicks "Leave room" or navigates back to Lobby)
+  socket.on('leave_room', () => {
+    handleSocketLeaveRoom(socket);
   });
 
   // Disconnect
   socket.on('disconnect', () => {
-    const roomId = socketToRoom.get(socket.id);
-    if (!roomId) return;
-    socketToRoom.delete(socket.id);
-
-    const room = rooms.get(roomId);
-    if (!room) return;
-
-    room.users.delete(socket.id);
-
-    if (room.users.size === 0) {
-      // Clean up empty room after 5 minutes
-      setTimeout(() => {
-        const checkRoom = rooms.get(roomId);
-        if (checkRoom && checkRoom.users.size === 0) {
-          rooms.delete(roomId);
-        }
-      }, 5 * 60 * 1000);
-    } else {
-      if (room.hostSocketId === socket.id) {
-        // Assign next connected user as host
-        const firstUserSocket = room.users.keys().next().value;
-        if (firstUserSocket) {
-          room.hostSocketId = firstUserSocket;
-        }
-      }
-      broadcastRoomState(room);
-    }
+    handleSocketLeaveRoom(socket);
   });
 });
 

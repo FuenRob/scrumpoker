@@ -1,4 +1,5 @@
 import type { DeckType, HistoryItem, RoomState } from '../types';
+import { buildHistoryRecord } from './stats';
 
 export interface InternalUser {
   socketId: string;
@@ -39,6 +40,25 @@ export function createRoom(
   };
 }
 
+export function hydrateRoomFromState(state: RoomState, hostSocketId: string): InternalRoom {
+  const room = createRoom(state.roomId, state.roomName, state.deckType, hostSocketId);
+  room.storyTitle = state.storyTitle || '';
+  room.isRevealed = !!state.isRevealed;
+  room.history = Array.isArray(state.history) ? [...state.history] : [];
+
+  for (const p of state.participants) {
+    room.users.set(p.id, {
+      socketId: p.id,
+      name: p.name,
+      avatarColor: p.avatarColor,
+      isSpectator: p.isSpectator,
+      vote: p.vote,
+    });
+  }
+
+  return room;
+}
+
 export function sanitizeRoomState(room: InternalRoom, recipientSocketId: string): RoomState {
   const seenUserKeys = new Set<string>();
   const participants = [];
@@ -76,41 +96,19 @@ export function sanitizeRoomState(room: InternalRoom, recipientSocketId: string)
 }
 
 export function calculateHistoryRecord(room: InternalRoom): HistoryItem | null {
-  const voters = Array.from(room.users.values()).filter((u) => !u.isSpectator && u.vote !== null);
-  if (voters.length === 0) return null;
+  return buildHistoryRecord(room.storyTitle, Array.from(room.users.values()));
+}
 
-  const numericVotes: number[] = [];
-  const distribution: Record<string, number> = {};
+function findUserInRoom(room: InternalRoom, socketOrUserId: string): InternalUser | undefined {
+  const direct = room.users.get(socketOrUserId);
+  if (direct) return direct;
 
-  for (const v of voters) {
-    if (!v.vote) continue;
-    distribution[v.vote] = (distribution[v.vote] || 0) + 1;
-    const num = parseFloat(v.vote);
-    if (!isNaN(num) && v.vote !== '?' && v.vote !== '☕' && v.vote !== '🦀') {
-      numericVotes.push(num);
+  for (const u of room.users.values()) {
+    if (u.socketId === socketOrUserId || (u.userId && u.userId === socketOrUserId)) {
+      return u;
     }
   }
-
-  let average: number | null = null;
-  if (numericVotes.length > 0) {
-    const sum = numericVotes.reduce((a, b) => a + b, 0);
-    average = Math.round((sum / numericVotes.length) * 10) / 10;
-  }
-
-  let maxFreq = 0;
-  for (const freq of Object.values(distribution)) {
-    if (freq > maxFreq) maxFreq = freq;
-  }
-  const agreementPercentage = Math.round((maxFreq / voters.length) * 100);
-
-  return {
-    id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    storyTitle: room.storyTitle.trim() || 'Estimación sin título',
-    timestamp: Date.now(),
-    average,
-    agreementPercentage,
-    votes: voters.map((v) => ({ name: v.name, vote: v.vote! })),
-  };
+  return undefined;
 }
 
 export function addUserToRoom(
@@ -171,28 +169,34 @@ export function addUserToRoom(
   }
 }
 
-export function removeUserFromRoom(room: InternalRoom, socketId: string): void {
-  room.users.delete(socketId);
+export function removeUserFromRoom(room: InternalRoom, socketOrUserId: string): boolean {
+  let targetKey: string | null = room.users.has(socketOrUserId) ? socketOrUserId : null;
+  if (!targetKey) {
+    for (const [key, u] of room.users.entries()) {
+      if (u.socketId === socketOrUserId || (u.userId && u.userId === socketOrUserId)) {
+        targetKey = key;
+        break;
+      }
+    }
+  }
+  if (!targetKey) return false;
 
-  if (room.hostSocketId === socketId && room.users.size > 0) {
+  room.users.delete(targetKey);
+
+  if (room.users.size === 0) {
+    room.hostSocketId = '';
+  } else if (room.hostSocketId === targetKey || !room.users.has(room.hostSocketId)) {
     const nextHost = room.users.keys().next().value;
     if (nextHost) {
       room.hostSocketId = nextHost;
     }
   }
+  return true;
 }
 
 export function castVoteInRoom(room: InternalRoom, socketId: string, vote: string | null): boolean {
   if (room.isRevealed) return false;
-  let user = room.users.get(socketId);
-  if (!user) {
-    for (const u of room.users.values()) {
-      if (u.socketId === socketId || (u.userId && u.userId === socketId)) {
-        user = u;
-        break;
-      }
-    }
-  }
+  const user = findUserInRoom(room, socketId);
   if (!user || user.isSpectator) return false;
   user.vote = vote;
   return true;
@@ -235,15 +239,7 @@ export function toggleSpectatorInRoom(
   socketId: string,
   isSpectator: boolean
 ): void {
-  let user = room.users.get(socketId);
-  if (!user) {
-    for (const u of room.users.values()) {
-      if (u.socketId === socketId || (u.userId && u.userId === socketId)) {
-        user = u;
-        break;
-      }
-    }
-  }
+  const user = findUserInRoom(room, socketId);
   if (!user) return;
   user.isSpectator = isSpectator;
   if (isSpectator) {
@@ -257,15 +253,7 @@ export function changeNameInRoom(
   name: string,
   avatarColor?: string
 ): void {
-  let user = room.users.get(socketId);
-  if (!user) {
-    for (const u of room.users.values()) {
-      if (u.socketId === socketId || (u.userId && u.userId === socketId)) {
-        user = u;
-        break;
-      }
-    }
-  }
+  const user = findUserInRoom(room, socketId);
   if (!user) return;
   user.name = name.trim() || 'Anónimo';
   if (avatarColor) {

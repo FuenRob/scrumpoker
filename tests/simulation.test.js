@@ -1,4 +1,5 @@
-import { calculateVoteStats } from '../src/utils/stats.js';
+import { calculateVoteStats, buildHistoryRecord } from '../src/utils/stats.js';
+import { buildSimulatedRoomState } from '../src/utils/demoBots.js';
 
 console.log('--- Testing Simulation & Stats Calculation ---');
 
@@ -51,6 +52,19 @@ if (statsWithCrab.distribution['🦀'] !== 1) {
 // Average should still be calculated ONLY from numeric votes (5, 5, 5, 8 => 23 / 4 = 5.8)
 if (statsWithCrab.average !== 5.8) {
   throw new Error(`Expected numeric average 5.8, got ${statsWithCrab.average}`);
+}
+
+const simState = buildSimulatedRoomState(null, {
+  roomId: 'demo-1',
+  socketId: 'user-self',
+  userName: 'Tú',
+  avatarColor: '#6366f1',
+  isSpectator: false,
+  selectedCard: '5',
+});
+const simHistory = buildHistoryRecord(simState.storyTitle, simState.participants);
+if (!simHistory || simHistory.agreementPercentage !== 75) {
+  throw new Error(`Expected simulated history agreementPercentage to be 75%, got ${simHistory?.agreementPercentage}`);
 }
 
 console.log('✓ Crab stats test passed!');

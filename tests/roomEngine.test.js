@@ -1,10 +1,12 @@
 import {
   createRoom,
+  hydrateRoomFromState,
   addUserToRoom,
   removeUserFromRoom,
   castVoteInRoom,
   revealVotesInRoom,
   resetVotesInRoom,
+  changeNameInRoom,
   sanitizeRoomState,
 } from '../src/utils/roomEngine.ts';
 
@@ -136,5 +138,24 @@ const guestInHostView = hostView.participants.find((p) => p.id === 'guest-socket
 if (!guestInHostView.hasVoted) throw new Error('Host should see guest hasVoted=true');
 if (guestInHostView.vote !== null) throw new Error(`Guest vote should be hidden from host before reveal, got: ${guestInHostView.vote}`);
 console.log('✓ Guest vote visibility to self and secrecy to host verified');
+
+// 10. Hydrate room from state on P2P host migration & avatarColor update
+sharedRoom.storyTitle = 'US-999: Migración de Host P2P';
+revealVotesInRoom(sharedRoom);
+const snapshotBeforeMigration = sanitizeRoomState(sharedRoom, 'guest-socket-2');
+
+const hydratedRoom = hydrateRoomFromState(snapshotBeforeMigration, 'guest-socket-2');
+if (hydratedRoom.storyTitle !== 'US-999: Migración de Host P2P') {
+  throw new Error('Expected storyTitle to be preserved after host hydration');
+}
+if (hydratedRoom.history.length !== 1) {
+  throw new Error('Expected history to be preserved after host hydration');
+}
+changeNameInRoom(hydratedRoom, 'guest-socket-2', 'Bob Nuevo Host', '#10b981');
+const updatedHost = hydratedRoom.users.get('guest-socket-2');
+if (updatedHost?.name !== 'Bob Nuevo Host' || updatedHost?.avatarColor !== '#10b981') {
+  throw new Error('Expected changeNameInRoom to update both name and avatarColor');
+}
+console.log('✓ P2P host state hydration & profile color update verified');
 
 console.log('--- ALL ROOM ENGINE TESTS PASSED! ---');

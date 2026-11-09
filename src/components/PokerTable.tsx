@@ -2,6 +2,7 @@ import React from 'react';
 import { Eye, RotateCcw, Crown, CheckCircle2, Coffee, HelpCircle, Loader2, Lock } from 'lucide-react';
 import { CrabIcon } from './CrabIcon';
 import type { RoomState } from '../types';
+import { isParticipantSelf } from '../utils/stats';
 
 interface PokerTableProps {
   roomState: RoomState;
@@ -108,11 +109,11 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             <div className="flex flex-wrap items-start justify-center gap-x-3 sm:gap-x-4 md:gap-5 lg:gap-6 gap-y-4 sm:gap-y-6 transition-all duration-200">
               {roomState.participants.map((participant) => {
                 const isHost = participant.id === roomState.hostId;
-                const isCurrentPlayer =
-                  (currentUserId && participant.id === currentUserId) ||
-                  participant.id === 'user-self' ||
-                  (currentUserName &&
-                    participant.name.trim().toLowerCase() === currentUserName.trim().toLowerCase());
+                const isCurrentPlayer = isParticipantSelf(
+                  participant,
+                  currentUserId,
+                  currentUserName
+                );
 
                 const displayVote =
                   (isCurrentPlayer && selectedCard !== null) ? selectedCard : participant.vote;

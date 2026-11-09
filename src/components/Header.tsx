@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Copy,
   Check,
@@ -71,9 +71,10 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  useEffect(() => {
+  const handleStartEditingStory = () => {
     setStoryInput(roomState.storyTitle);
-  }, [roomState.storyTitle]);
+    setIsEditingStory(true);
+  };
 
   const handleCopy = () => {
     onCopyLink();
@@ -286,7 +287,7 @@ export const Header: React.FC<HeaderProps> = ({
               </form>
             ) : (
               <div
-                onClick={() => setIsEditingStory(true)}
+                onClick={handleStartEditingStory}
                 className="flex items-center gap-2 group cursor-pointer min-w-0"
                 title="Haz clic para definir o editar la tarea a estimar"
               >

@@ -1,9 +1,16 @@
-import type { Participant, VoteStats } from '../types';
+import type { HistoryItem, Participant, VoteStats } from '../types';
 
-export function calculateVoteStats(participants: Participant[]): VoteStats {
+export interface VoteableUser {
+  name: string;
+  isSpectator: boolean;
+  vote: string | null;
+  hasVoted?: boolean;
+}
+
+export function calculateVoteStats(participants: VoteableUser[]): VoteStats {
   const voters = participants.filter((p) => !p.isSpectator);
-  const activeVotes = voters.filter((p) => p.hasVoted && p.vote !== null);
-  
+  const activeVotes = voters.filter((p) => (p.hasVoted ?? p.vote !== null) && p.vote !== null);
+
   const distribution: Record<string, number> = {};
   const numericValues: number[] = [];
 
@@ -61,6 +68,44 @@ export function calculateVoteStats(participants: Participant[]): VoteStats {
     totalVoted,
     distribution,
   };
+}
+
+export function buildHistoryRecord(
+  storyTitle: string,
+  participants: VoteableUser[]
+): HistoryItem | null {
+  const voters = participants.filter(
+    (u): u is VoteableUser & { vote: string } =>
+      !u.isSpectator && (u.hasVoted ?? u.vote !== null) && u.vote !== null
+  );
+  if (voters.length === 0) return null;
+
+  const stats = calculateVoteStats(voters);
+
+  return {
+    id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    storyTitle: storyTitle.trim() || 'Estimación sin título',
+    timestamp: Date.now(),
+    average: stats.average,
+    agreementPercentage: stats.agreementPercentage,
+    votes: voters.map((v) => ({ name: v.name, vote: v.vote })),
+  };
+}
+
+export function isParticipantSelf(
+  participant: Pick<Participant, 'id' | 'name'>,
+  currentSocketId?: string | null,
+  currentUserName?: string | null
+): boolean {
+  if (currentSocketId && participant.id === currentSocketId) return true;
+  if (participant.id === 'user-self') return true;
+  if (
+    currentUserName &&
+    participant.name.trim().toLowerCase() === currentUserName.trim().toLowerCase()
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export const AVATAR_COLORS = [

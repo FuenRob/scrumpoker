@@ -2,6 +2,7 @@ import { Peer, type DataConnection } from 'peerjs';
 import type { DeckType, RoomState } from '../types';
 import {
   createRoom,
+  hydrateRoomFromState,
   sanitizeRoomState,
   addUserToRoom,
   removeUserFromRoom,
@@ -26,6 +27,7 @@ export type P2PMessage =
         avatarColor?: string;
         isSpectator?: boolean;
         deckType?: DeckType;
+        vote?: string | null;
         senderId: string;
       };
     }
@@ -36,7 +38,7 @@ export type P2PMessage =
   | { type: 'update_story'; payload: { storyTitle: string; senderId: string } }
   | { type: 'change_deck'; payload: { deckType: DeckType; senderId: string } }
   | { type: 'toggle_spectator'; payload: { isSpectator: boolean; senderId: string } }
-  | { type: 'change_name'; payload: { name: string; senderId: string } }
+  | { type: 'change_name'; payload: { name: string; avatarColor?: string; senderId: string } }
   | { type: 'leave'; payload: { senderId: string } };
 
 export interface P2PRoomOptions {
@@ -48,6 +50,7 @@ export interface P2PRoomOptions {
   isSpectator: boolean;
   deckType?: DeckType;
   isHostIntent?: boolean;
+  initialState?: RoomState | null;
   onStateChange: (state: RoomState) => void;
   onStatusChange: (status: 'connected' | 'connecting' | 'disconnected') => void;
 }
@@ -61,6 +64,8 @@ export class P2PRoomManager {
   private isSpectator: boolean;
   private deckType: DeckType;
   private isHostIntent: boolean;
+  private lastKnownState: RoomState | null = null;
+  private currentVote: string | null = null;
   private onStateChange: (state: RoomState) => void;
   private onStatusChange: (status: 'connected' | 'connecting' | 'disconnected') => void;
 
@@ -73,7 +78,7 @@ export class P2PRoomManager {
   private broadcastChannel: BroadcastChannel | null = null;
   private localSocketId: string;
   private isDestroyed = false;
-  private hostRetryTimer: any = null;
+  private hostRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   private handleBeforeUnload = () => {
     this.destroy();
@@ -88,7 +93,11 @@ export class P2PRoomManager {
     this.isSpectator = options.isSpectator;
     this.deckType = options.deckType || 'modified-fibonacci';
     this.isHostIntent = !!options.isHostIntent;
-    this.onStateChange = options.onStateChange;
+    this.lastKnownState = options.initialState || null;
+    this.onStateChange = (state: RoomState) => {
+      this.lastKnownState = state;
+      options.onStateChange(state);
+    };
     this.onStatusChange = options.onStatusChange;
 
     this.localSocketId = `p2p_${Math.random().toString(36).substring(2, 9)}`;
@@ -155,13 +164,17 @@ export class P2PRoomManager {
         this.isHost = true;
         this.onStatusChange('connected');
 
-        // Setup host internal room
-        this.internalRoom = createRoom(
-          this.cleanRoomId,
-          this.roomName,
-          this.deckType,
-          this.localSocketId
-        );
+        // Setup or hydrate host internal room preserving previous state on host migration
+        if (this.lastKnownState && this.lastKnownState.roomId === this.cleanRoomId) {
+          this.internalRoom = hydrateRoomFromState(this.lastKnownState, this.localSocketId);
+        } else {
+          this.internalRoom = createRoom(
+            this.cleanRoomId,
+            this.roomName,
+            this.deckType,
+            this.localSocketId
+          );
+        }
 
         addUserToRoom(this.internalRoom, {
           socketId: this.localSocketId,
@@ -169,7 +182,9 @@ export class P2PRoomManager {
           name: this.userName,
           avatarColor: this.avatarColor,
           isSpectator: this.isSpectator,
+          vote: this.currentVote,
         });
+        this.internalRoom.hostSocketId = this.localSocketId;
 
         this.broadcastHostState();
       });
@@ -251,19 +266,24 @@ export class P2PRoomManager {
       this.handleIncomingMessage(data as P2PMessage, conn.peer);
     });
 
-    conn.on('close', () => {
+    const handleGuestDisconnect = () => {
       const socketId = this.peerToSocketId.get(conn.peer) || conn.peer;
       this.connections.delete(conn.peer);
       this.peerToSocketId.delete(conn.peer);
-      if (this.internalRoom) {
-        removeUserFromRoom(this.internalRoom, socketId);
-        this.broadcastHostState();
+      if (!this.isDestroyed && this.internalRoom) {
+        if (removeUserFromRoom(this.internalRoom, socketId)) {
+          this.broadcastHostState();
+        }
       }
-    });
+    };
+
+    conn.on('close', handleGuestDisconnect);
+    conn.on('error', handleGuestDisconnect);
   }
 
   private setupGuestHostConnection(conn: DataConnection) {
     this.hostConnection = conn;
+    let connectedHostSocketId: string | null = null;
 
     conn.on('open', () => {
       if (this.isDestroyed) return;
@@ -280,6 +300,7 @@ export class P2PRoomManager {
           avatarColor: this.avatarColor,
           isSpectator: this.isSpectator,
           deckType: this.deckType,
+          vote: this.currentVote,
           senderId: this.localSocketId,
         },
       });
@@ -289,33 +310,48 @@ export class P2PRoomManager {
       if (this.isDestroyed) return;
       const msg = data as P2PMessage;
       if (msg.type === 'room_state') {
+        if (!connectedHostSocketId && msg.payload.hostId) {
+          connectedHostSocketId = msg.payload.hostId;
+        }
         this.onStateChange(msg.payload);
       }
     });
 
-    conn.on('close', () => {
+    const handleHostDisconnect = () => {
       if (this.isDestroyed) return;
+      const hostToRemove = connectedHostSocketId || this.lastKnownState?.hostId;
+      if (hostToRemove && this.lastKnownState) {
+        const remaining = this.lastKnownState.participants.filter((p) => p.id !== hostToRemove);
+        const nextHostId = remaining[0]?.id || this.localSocketId;
+        this.lastKnownState = {
+          ...this.lastKnownState,
+          hostId: nextHostId,
+          participants: remaining.map((p) => ({
+            ...p,
+            isHost: p.id === nextHostId,
+          })),
+        };
+        this.onStateChange(this.lastKnownState);
+      }
       this.hostConnection = null;
       // Host disconnected: try to promote self to host
       this.peer?.destroy();
       this.peer = null;
       this.tryBecomeHost();
-    });
+    };
 
-    conn.on('error', () => {
-      if (this.isDestroyed) return;
-      this.peer?.destroy();
-      this.peer = null;
-      this.tryBecomeHost();
-    });
+    conn.on('close', handleHostDisconnect);
+    conn.on('error', handleHostDisconnect);
   }
 
-  private broadcastHostState() {
+  private broadcastHostState(notifySelf = true) {
     if (!this.internalRoom) return;
 
     // Notify local host
-    const selfState = sanitizeRoomState(this.internalRoom, this.localSocketId);
-    this.onStateChange(selfState);
+    if (notifySelf && !this.isDestroyed) {
+      const selfState = sanitizeRoomState(this.internalRoom, this.localSocketId);
+      this.onStateChange(selfState);
+    }
 
     // Send to WebRTC connections
     this.connections.forEach((conn, peerId) => {
@@ -360,6 +396,7 @@ export class P2PRoomManager {
             name: p.name,
             avatarColor: p.avatarColor,
             isSpectator: p.isSpectator,
+            vote: p.vote,
           });
           this.broadcastHostState();
           break;
@@ -402,14 +439,26 @@ export class P2PRoomManager {
         }
 
         case 'change_name': {
-          changeNameInRoom(this.internalRoom, senderId, msg.payload.name);
+          changeNameInRoom(
+            this.internalRoom,
+            senderId,
+            msg.payload.name,
+            msg.payload.avatarColor
+          );
           this.broadcastHostState();
           break;
         }
 
         case 'leave': {
-          removeUserFromRoom(this.internalRoom, senderId);
-          this.broadcastHostState();
+          const mappedSocketId = this.peerToSocketId.get(senderPeerId);
+          const removedBySender = removeUserFromRoom(this.internalRoom, senderId);
+          const removedByPeer =
+            mappedSocketId && mappedSocketId !== senderId
+              ? removeUserFromRoom(this.internalRoom, mappedSocketId)
+              : false;
+          if (removedBySender || removedByPeer) {
+            this.broadcastHostState();
+          }
           break;
         }
       }
@@ -424,12 +473,34 @@ export class P2PRoomManager {
         this.onStateChange(myState);
       } else if (msg.type === 'room_state') {
         this.onStateChange(msg.payload);
+      } else if (msg.type === 'leave' && this.lastKnownState) {
+        const leavingId = msg.payload.senderId;
+        const remaining = this.lastKnownState.participants.filter((p) => p.id !== leavingId);
+        if (remaining.length !== this.lastKnownState.participants.length) {
+          const wasHost = this.lastKnownState.hostId === leavingId;
+          const nextHostId = wasHost ? remaining[0]?.id : this.lastKnownState.hostId;
+          this.lastKnownState = {
+            ...this.lastKnownState,
+            hostId: nextHostId,
+            participants: remaining.map((p) => ({
+              ...p,
+              isHost: p.id === nextHostId,
+            })),
+          };
+          this.onStateChange(this.lastKnownState);
+        }
       }
     }
   }
 
   // Guest actions dispatched to host (and broadcast channel)
   public sendAction(action: P2PMessage) {
+    if (action.type === 'cast_vote') {
+      this.currentVote = action.payload.vote;
+    } else if (action.type === 'reset_votes' || action.type === 'change_deck') {
+      this.currentVote = null;
+    }
+
     if (this.isHost) {
       this.handleIncomingMessage(action, this.localSocketId);
     } else if (this.hostConnection && this.hostConnection.open) {
@@ -448,7 +519,10 @@ export class P2PRoomManager {
   public updateProfile(name: string, color?: string, spectator?: boolean) {
     this.userName = name;
     if (color) this.avatarColor = color;
-    if (spectator !== undefined) this.isSpectator = spectator;
+    if (spectator !== undefined) {
+      this.isSpectator = spectator;
+      if (spectator) this.currentVote = null;
+    }
 
     if (this.isHost && this.internalRoom) {
       changeNameInRoom(this.internalRoom, this.localSocketId, name, color);
@@ -459,7 +533,7 @@ export class P2PRoomManager {
     } else {
       this.sendAction({
         type: 'change_name',
-        payload: { name, senderId: this.localSocketId },
+        payload: { name, avatarColor: color, senderId: this.localSocketId },
       });
       if (spectator !== undefined) {
         this.sendAction({
@@ -471,16 +545,29 @@ export class P2PRoomManager {
   }
 
   public destroy() {
+    if (this.isDestroyed) return;
     this.isDestroyed = true;
-    if (this.hostRetryTimer) {
-      clearTimeout(this.hostRetryTimer);
-      this.hostRetryTimer = null;
+
+    const leaveMessage: P2PMessage = {
+      type: 'leave',
+      payload: { senderId: this.localSocketId },
+    };
+
+    // Notify peers and local tabs that this user has left the room
+    if (this.isHost && this.internalRoom) {
+      removeUserFromRoom(this.internalRoom, this.localSocketId);
+      this.broadcastHostState(false);
+    } else if (this.hostConnection && this.hostConnection.open) {
+      try {
+        this.hostConnection.send(leaveMessage);
+      } catch {
+        // Ignore
+      }
     }
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('beforeunload', this.handleBeforeUnload);
-    }
+
     if (this.broadcastChannel) {
       try {
+        this.broadcastChannel.postMessage(leaveMessage);
         this.broadcastChannel.close();
       } catch {
         // Ignore
@@ -488,31 +575,47 @@ export class P2PRoomManager {
       this.broadcastChannel = null;
     }
 
-    this.connections.forEach((conn) => {
-      try {
-        conn.close();
-      } catch {
-        // Ignore
-      }
-    });
+    if (this.hostRetryTimer) {
+      clearTimeout(this.hostRetryTimer);
+      this.hostRetryTimer = null;
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    }
+
+    const activeConnections = Array.from(this.connections.values());
+    const activeHostConn = this.hostConnection;
+    const activePeer = this.peer;
+
     this.connections.clear();
+    this.hostConnection = null;
+    this.peer = null;
 
-    if (this.hostConnection) {
-      try {
-        this.hostConnection.close();
-      } catch {
-        // Ignore
-      }
-      this.hostConnection = null;
-    }
+    // Allow outgoing leave / room_state frames to flush over WebRTC before tearing down PeerJS
+    setTimeout(() => {
+      activeConnections.forEach((conn) => {
+        try {
+          conn.close();
+        } catch {
+          // Ignore
+        }
+      });
 
-    if (this.peer) {
-      try {
-        this.peer.destroy();
-      } catch {
-        // Ignore
+      if (activeHostConn) {
+        try {
+          activeHostConn.close();
+        } catch {
+          // Ignore
+        }
       }
-      this.peer = null;
-    }
+
+      if (activePeer) {
+        try {
+          activePeer.destroy();
+        } catch {
+          // Ignore
+        }
+      }
+    }, 60);
   }
 }

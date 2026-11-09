@@ -182,66 +182,90 @@ export function App() {
     }, 200);
   };
 
-  // If in room, render active room view
-  if (roomId && roomState) {
-    return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-white font-sans transition-colors duration-150 overflow-x-hidden">
-        {/* Header */}
-        <Header
-          roomState={roomState}
+  const isActiveRoom = Boolean(roomId && roomState);
+
+  return (
+    <>
+      {isActiveRoom && roomState ? (
+        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-200 dark:selection:bg-zinc-800 selection:text-zinc-900 dark:selection:text-white font-sans transition-colors duration-150 overflow-x-hidden">
+          {/* Header */}
+          <Header
+            roomState={roomState}
+            userName={userName}
+            avatarColor={avatarColor}
+            isSpectator={isSpectator}
+            isConnected={isConnected}
+            connectionMode={connectionMode}
+            theme={theme}
+            crabMode={crabMode}
+            onToggleTheme={toggleTheme}
+            onCopyLink={handleCopyLink}
+            onOpenHistory={() => setIsHistoryOpen(true)}
+            onOpenProfile={() => setIsNameModalOpen(true)}
+            onLeaveRoom={handleLeaveRoom}
+            onChangeDeck={changeDeck}
+            onUpdateStory={updateStory}
+            onAddBots={addDemoBots}
+            isSimulated={isSimulated}
+            onToggleCrabMode={toggleCrabMode}
+          />
+
+          {/* Main Content Area */}
+          <main
+            className={`flex-1 flex flex-col justify-center items-center py-4 w-full transition-[padding] duration-500 ease-in-out ${
+              roomState.isRevealed ? 'pb-8' : 'pb-36 sm:pb-44'
+            }`}
+          >
+            {/* Poker Table */}
+            <PokerTable
+              roomState={roomState}
+              currentUserId={socketId}
+              currentUserName={userName}
+              selectedCard={selectedCard}
+              onRevealVotes={revealVotes}
+              onResetVotes={resetVotes}
+            />
+
+            {/* Stats Panel (when revealed) */}
+            {roomState.isRevealed && (
+              <StatsPanel participants={roomState.participants} />
+            )}
+          </main>
+
+          {/* Card Deck Tray */}
+          <CardDeck
+            deckType={roomState.deckType}
+            selectedCard={selectedCard}
+            isRevealed={roomState.isRevealed}
+            isSpectator={isSpectator}
+            crabMode={crabMode}
+            onSelectCard={castVote}
+            onToggleSpectator={toggleSpectator}
+          />
+
+          {/* History Drawer */}
+          <HistoryDrawer
+            isOpen={isHistoryOpen}
+            history={roomState.history}
+            onClose={() => setIsHistoryOpen(false)}
+          />
+        </div>
+      ) : (
+        <Lobby
+          onCreateRoom={handleCreateRoom}
+          onJoinRoom={handleJoinRoom}
+          onDemoWithBots={handleDemoWithBots}
           userName={userName}
-          avatarColor={avatarColor}
-          isSpectator={isSpectator}
-          isConnected={isConnected}
-          connectionMode={connectionMode}
           theme={theme}
           crabMode={crabMode}
           onToggleTheme={toggleTheme}
-          onCopyLink={handleCopyLink}
-          onOpenHistory={() => setIsHistoryOpen(true)}
-          onOpenProfile={() => setIsNameModalOpen(true)}
-          onLeaveRoom={handleLeaveRoom}
-          onChangeDeck={changeDeck}
-          onUpdateStory={updateStory}
-          onAddBots={addDemoBots}
-          isSimulated={isSimulated}
+          onOpenNameModal={() => setIsNameModalOpen(true)}
           onToggleCrabMode={toggleCrabMode}
         />
+      )}
 
-        {/* Main Content Area */}
-        <main
-          className={`flex-1 flex flex-col justify-center items-center py-4 w-full transition-[padding] duration-500 ease-in-out ${
-            roomState.isRevealed ? 'pb-8' : 'pb-36 sm:pb-44'
-          }`}
-        >
-          {/* Poker Table */}
-          <PokerTable
-            roomState={roomState}
-            currentUserId={socketId}
-            currentUserName={userName}
-            selectedCard={selectedCard}
-            onRevealVotes={revealVotes}
-            onResetVotes={resetVotes}
-          />
-
-          {/* Stats Panel (when revealed) */}
-          {roomState.isRevealed && (
-            <StatsPanel participants={roomState.participants} />
-          )}
-        </main>
-
-        {/* Card Deck Tray */}
-        <CardDeck
-          deckType={roomState.deckType}
-          selectedCard={selectedCard}
-          isRevealed={roomState.isRevealed}
-          isSpectator={isSpectator}
-          crabMode={crabMode}
-          onSelectCard={castVote}
-          onToggleSpectator={toggleSpectator}
-        />
-
-        {/* Name Modal */}
+      {/* Name Modal */}
+      {isNameModalOpen && (
         <NameModal
           isOpen={isNameModalOpen}
           initialName={userName}
@@ -252,51 +276,7 @@ export function App() {
           onSave={handleSaveProfile}
           onClose={() => setIsNameModalOpen(false)}
         />
-
-        {/* History Drawer */}
-        <HistoryDrawer
-          isOpen={isHistoryOpen}
-          history={roomState.history}
-          onClose={() => setIsHistoryOpen(false)}
-        />
-
-        {/* Crab Easter Egg Swarm */}
-        <CrabSwarm
-          active={showCrabSwarm}
-          onComplete={closeCrabSwarm}
-        />
-
-        {/* Floating Toasts */}
-        <Toast toasts={toasts} onDismiss={removeToast} />
-      </div>
-    );
-  }
-
-  // Otherwise, render Lobby
-  return (
-    <>
-      <Lobby
-        onCreateRoom={handleCreateRoom}
-        onJoinRoom={handleJoinRoom}
-        onDemoWithBots={handleDemoWithBots}
-        userName={userName}
-        theme={theme}
-        crabMode={crabMode}
-        onToggleTheme={toggleTheme}
-        onOpenNameModal={() => setIsNameModalOpen(true)}
-        onToggleCrabMode={toggleCrabMode}
-      />
-
-      <NameModal
-        isOpen={isNameModalOpen}
-        initialName={userName}
-        initialColor={avatarColor}
-        initialIsSpectator={isSpectator}
-        isClosable={!!userName}
-        targetRoomId={urlRoomId || (!roomState ? roomId : null)}
-        onSave={handleSaveProfile}
-        onClose={() => setIsNameModalOpen(false)}
-      />
+      )}
 
       {/* Crab Easter Egg Swarm */}
       <CrabSwarm
@@ -304,6 +284,7 @@ export function App() {
         onComplete={closeCrabSwarm}
       />
 
+      {/* Floating Toasts */}
       <Toast toasts={toasts} onDismiss={removeToast} />
     </>
   );
