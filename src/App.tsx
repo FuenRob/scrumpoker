@@ -84,6 +84,8 @@ export function App() {
     roomId,
     roomState,
     isConnected,
+    isJoining,
+    joinError,
     connectionMode,
     socketId,
     userName,
@@ -123,10 +125,13 @@ export function App() {
 
   // If user arrives directly via a shared link and already has a name, enter immediately
   useEffect(() => {
-    if (urlRoomId && userName && (!roomState || roomId !== urlRoomId)) {
+    if (
+      urlRoomId && userName &&
+      (roomId !== urlRoomId || (!roomState && !isJoining && !joinError))
+    ) {
       joinRoom(urlRoomId);
     }
-  }, [urlRoomId, roomId, roomState, userName, joinRoom]);
+  }, [urlRoomId, roomId, roomState, isJoining, joinError, userName, joinRoom]);
 
   // Sync URL when roomId changes
   const updateUrl = useCallback((newRoomId: string | null) => {
@@ -277,6 +282,34 @@ export function App() {
             history={roomState.history}
             onClose={() => setIsHistoryOpen(false)}
           />
+        </div>
+      ) : roomId && userName && !isNameModalOpen ? (
+        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6">
+          <div className="w-full max-w-md text-center space-y-5">
+            <h1 className="text-2xl font-semibold">
+              {joinError ? 'No se pudo entrar en la sala' : 'Conectando con la sala...'}
+            </h1>
+            <p role={joinError ? 'alert' : 'status'} className="text-zinc-600 dark:text-zinc-400">
+              {joinError || 'Esperando confirmación de los participantes conectados.'}
+            </p>
+            <p className="text-xs font-mono text-zinc-500">Sala #{roomId}</p>
+            <div className="flex justify-center gap-3">
+              {joinError && (
+                <button
+                  onClick={() => joinRoom(roomId)}
+                  className="rounded-lg px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700"
+                >
+                  Reintentar
+                </button>
+              )}
+              <button
+                onClick={handleLeaveRoom}
+                className="rounded-lg px-4 py-2 border border-zinc-300 dark:border-zinc-700"
+              >
+                Volver al inicio
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <Lobby

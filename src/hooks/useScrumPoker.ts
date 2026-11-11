@@ -52,6 +52,8 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
   );
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isJoining, setIsJoining] = useState<boolean>(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [connectionMode, setConnectionMode] = useState<ConnectionMode>('offline');
   const [socketId, setSocketId] = useState<string>('user-self');
   const [userName, setUserName] = useState<string>(getStoredUserName);
@@ -154,6 +156,8 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         return;
       }
       setRoomState(state);
+      setIsJoining(false);
+      setJoinError(null);
       const self = state.participants.find((p) =>
         isParticipantSelf(p, activeId, sessionRef.current.userName)
       );
@@ -195,6 +199,10 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
           if (socketRef.current?.connected) return;
           setIsConnected(status === 'connected');
           setConnectionMode(status === 'connected' ? 'p2p' : 'offline');
+          if (status === 'disconnected') {
+            setIsJoining(false);
+            setJoinError('No se ha podido establecer la conexión P2P. Comprueba tu red o inténtalo de nuevo.');
+          }
           if (status === 'connected' && p2pManagerRef.current) {
             setSocketId(p2pManagerRef.current.getSocketId());
           }
@@ -219,15 +227,17 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     }
 
     const socket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      // Polling is more compatible with restrictive corporate proxies; upgrade to WebSocket when possible.
+      transports: ['polling', 'websocket'],
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
-      timeout: 3000,
+      timeout: 10000,
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      setJoinError(null);
       setIsConnected(true);
       setConnectionMode('socket');
       setSocketId(socket.id || 'user-self');
@@ -242,6 +252,7 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       const { roomId: curRoomId, userName: curName, avatarColor: curColor, isSpectator: curSpectator } =
         sessionRef.current;
       if (curRoomId && curName) {
+        setIsJoining(true);
         socket.emit('join_room', {
           roomId: curRoomId,
           userId: getStoredUserId(),
@@ -260,10 +271,17 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     });
 
     socket.on('connect_error', () => {
-      // If socket server cannot be reached, fallback to WebRTC P2P
-      if (sessionRef.current.roomId && !p2pManagerRef.current) {
-        startP2PMode(sessionRef.current.roomId);
-      }
+      // Never fall back silently: P2P and Socket.IO rooms have independent state.
+      // Mixed transports would strand participants in different rooms with the same link.
+      setIsConnected(false);
+      setIsJoining(false);
+      setJoinError('No se puede conectar con el servidor de votación. Comprueba tu conexión e inténtalo de nuevo.');
+    });
+
+    socket.on('room_join_error', (payload: { code?: string; message?: string }) => {
+      setIsJoining(false);
+      setRoomState(null);
+      setJoinError(payload?.message || 'El servidor no ha podido añadirte a la sala.');
     });
 
     socket.on('room_state', (state: RoomState) => {
@@ -282,6 +300,10 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
       const cleanId = targetRoomId.trim().toLowerCase();
       setRoomId(cleanId);
       sessionRef.current.roomId = cleanId;
+      setIsJoining(true);
+      setJoinError(null);
+      // Do not pretend to be in a shared room until the authoritative state arrives.
+      setRoomState(null);
 
       // Save to recent rooms
       try {
@@ -295,35 +317,9 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
         // Ignore storage error
       }
 
-      const currentSocketId = getActiveSocketId();
       const effectiveName = userNameOverride || sessionRef.current.userName || 'Tú';
       const effectiveAvatar = sessionRef.current.avatarColor;
       const effectiveSpectator = sessionRef.current.isSpectator;
-
-      // Provide immediate optimistic room state so poker table renders instantly
-      setRoomState((prev) => {
-        if (prev && prev.roomId === cleanId && prev.participants.length > 0) return prev;
-        return {
-          roomId: cleanId,
-          roomName: roomName || `Sala ${cleanId.toUpperCase()}`,
-          storyTitle: '',
-          deckType: deckType || 'modified-fibonacci',
-          isRevealed: false,
-          participants: [
-            {
-              id: currentSocketId,
-              name: effectiveName,
-              avatarColor: effectiveAvatar,
-              isSpectator: effectiveSpectator,
-              hasVoted: false,
-              vote: null,
-              isHost: true,
-            },
-          ],
-          history: [],
-          hostId: currentSocketId,
-        };
-      });
 
       // Send to Socket.IO if connected
       if (socketRef.current?.connected) {
@@ -337,12 +333,15 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
           deckType,
         });
         socketJoinedRoomRef.current = true;
-      } else {
-        // Otherwise start P2P mode
+      } else if (!resolveServerUrl()) {
+        // Explicit P2P-only deployment (e.g. GitHub Pages).
         startP2PMode(cleanId, roomName, deckType, !!roomName);
+      } else {
+        // Socket.IO deployment: wait for connect and automatic join; never fork into P2P.
+        socketRef.current?.connect();
       }
     },
-    [getActiveSocketId, startP2PMode]
+    [startP2PMode]
   );
 
   // Leave room
@@ -350,6 +349,8 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     setRoomId(null);
     sessionRef.current.roomId = null;
     setRoomState(null);
+    setIsJoining(false);
+    setJoinError(null);
     sessionRef.current.roomState = null;
     setSelectedCard(null);
     setIsSimulated(false);
@@ -625,6 +626,8 @@ export function useScrumPoker({ initialRoomId }: UseScrumPokerProps) {
     roomId,
     roomState,
     isConnected,
+    isJoining,
+    joinError,
     connectionMode,
     socketId,
     userName,

@@ -126,10 +126,20 @@ function handleSocketLeaveRoom(socket: Socket) {
 io.on('connection', (socket: Socket) => {
   // Join Room
   socket.on('join_room', (payload: unknown) => {
-    if (isSocketRateLimited(socket.id) || !isPlainObject(payload)) return;
+    if (isSocketRateLimited(socket.id)) {
+      socket.emit('room_join_error', { code: 'rate_limited', message: 'Demasiados intentos. Vuelve a probar en unos segundos.' });
+      return;
+    }
+    if (!isPlainObject(payload)) {
+      socket.emit('room_join_error', { code: 'invalid_payload', message: 'Los datos de acceso a la sala no son válidos.' });
+      return;
+    }
 
     const cleanRoomId = sanitizeRoomId(payload.roomId);
-    if (!cleanRoomId) return;
+    if (!cleanRoomId) {
+      socket.emit('room_join_error', { code: 'invalid_room_id', message: 'El enlace o código de sala no es válido.' });
+      return;
+    }
 
     const previousRoomId = socketToRoom.get(socket.id);
     if (previousRoomId && previousRoomId !== cleanRoomId) {
@@ -145,7 +155,10 @@ io.on('connection', (socket: Socket) => {
     }
 
     if (!room) {
-      if (!evictEmptyRoomIfNeeded()) return;
+      if (!evictEmptyRoomIfNeeded()) {
+        socket.emit('room_join_error', { code: 'room_limit', message: 'El servidor ha alcanzado el límite de salas. Prueba más tarde.' });
+        return;
+      }
       room = createRoom(
         cleanRoomId,
         typeof payload.roomName === 'string' ? payload.roomName : undefined,
@@ -164,7 +177,10 @@ io.on('connection', (socket: Socket) => {
       isSpectator: typeof payload.isSpectator === 'boolean' ? payload.isSpectator : false,
     });
 
-    if (!added) return;
+    if (!added) {
+      socket.emit('room_join_error', { code: 'room_full', message: 'Esta sala ha alcanzado el máximo de participantes.' });
+      return;
+    }
 
     socket.join(cleanRoomId);
     socketToRoom.set(socket.id, cleanRoomId);
@@ -276,7 +292,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Serve frontend in production
-const distPath = path.resolve(__dirname, '../dist');
+const distPath = process.env.STATIC_DIR
+  ? path.resolve(process.env.STATIC_DIR)
+  : path.resolve(__dirname, '../dist');
 app.use(express.static(distPath));
 app.use((_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
