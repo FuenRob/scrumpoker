@@ -1,6 +1,8 @@
 name: Deploy production
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -9,8 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: production
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -34,14 +36,32 @@ jobs:
       - name: Run tests
         run: pnpm test
 
-      - name: Build frontend
+      - name: Run Socket.IO integration test
+        run: |
+          PORT=3001 pnpm start >/tmp/scrumpoker-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3001/api/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3001/api/health
+          SERVER_URL=http://127.0.0.1:3001 timeout 45s pnpm test:e2e
+
+      - name: Build frontend (Socket.IO mode)
         env:
           BASE_PATH: /
-          VITE_P2P: 'true'
+          VITE_P2P: 'false'
         run: pnpm run build
 
-      - name: Package release
-        run: tar -czf release.tgz -C dist .
+      - name: Package static frontend and Node backend
+        run: |
+          mkdir -p release/public release/backend
+          cp -a dist/. release/public/
+          cp -a server src package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc release/backend/
+          tar -czf release.tgz -C release .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -51,6 +71,7 @@ jobs:
           retention-days: 7
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment: production
@@ -128,15 +149,71 @@ jobs:
           ARCHIVE="$2"
           APP_ROOT="/var/www/scrumpoker"
           RELEASE_DIR="$APP_ROOT/releases/$RELEASE_ID"
+          PREVIOUS_STATIC="$(readlink "$APP_ROOT/current" 2>/dev/null || true)"
+          PREVIOUS_BACKEND="$(readlink "$APP_ROOT/backend-current" 2>/dev/null || true)"
+
+          # A migration to centralized rooms needs the reverse proxy and systemd
+          # to be prepared BEFORE activating the new frontend.
+          test -f "$APP_ROOT/.socketio-ready" || {
+            echo "Missing $APP_ROOT/.socketio-ready; see the VPS preparation section in the PR description."
+            exit 1
+          }
+          systemctl cat scrumpoker.service >/dev/null || {
+            echo "Missing scrumpoker.service; see the VPS preparation section in the PR description."
+            exit 1
+          }
+          command -v node >/dev/null
+          command -v pnpm >/dev/null
 
           mkdir -p "$RELEASE_DIR"
           tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
+          test -f "$RELEASE_DIR/public/index.html"
+          test -f "$RELEASE_DIR/backend/server/index.ts"
 
-          test -f "$RELEASE_DIR/index.html"
+          # Install only runtime dependencies in the backend directory,
+          # which is not publicly reachable through Nginx.
+          cd "$RELEASE_DIR/backend"
+          pnpm install --prod --frozen-lockfile
+          test -x node_modules/.bin/tsx
 
-          rm -f "$APP_ROOT/current.next"
-          ln -s "$RELEASE_DIR" "$APP_ROOT/current.next"
+          rm -f "$APP_ROOT/current.next" "$APP_ROOT/backend-current.next"
+          ln -s "$RELEASE_DIR/public" "$APP_ROOT/current.next"
+          ln -s "$RELEASE_DIR/backend" "$APP_ROOT/backend-current.next"
+          mv -Tf "$APP_ROOT/backend-current.next" "$APP_ROOT/backend-current"
           mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
+
+          rollback() {
+            echo "Restart or health check failed; restoring previous release."
+            if [ -n "$PREVIOUS_STATIC" ]; then
+              ln -sfn "$PREVIOUS_STATIC" "$APP_ROOT/current.rollback"
+              mv -Tf "$APP_ROOT/current.rollback" "$APP_ROOT/current"
+            else
+              rm -f "$APP_ROOT/current"
+            fi
+            if [ -n "$PREVIOUS_BACKEND" ]; then
+              ln -sfn "$PREVIOUS_BACKEND" "$APP_ROOT/backend-current.rollback"
+              mv -Tf "$APP_ROOT/backend-current.rollback" "$APP_ROOT/backend-current"
+              sudo -n systemctl restart scrumpoker.service || true
+            else
+              rm -f "$APP_ROOT/backend-current"
+              sudo -n systemctl stop scrumpoker.service || true
+            fi
+            exit 1
+          }
+
+          sudo -n systemctl restart scrumpoker.service || rollback
+
+          HEALTHY=false
+          for i in {1..15}; do
+            if curl --fail --silent http://127.0.0.1:3001/api/health >/dev/null; then
+              HEALTHY=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$HEALTHY" != true ]; then
+            rollback
+          fi
 
           rm -f "$ARCHIVE"
 

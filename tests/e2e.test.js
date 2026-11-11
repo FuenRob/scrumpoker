@@ -92,6 +92,24 @@ async function testPokerFlow() {
   socket2.emit('cast_vote', { vote: 'INVALID_CARD_999' });
   socket2.emit('change_name', { name: 12345 });
 
+  // Invalid room IDs must be rejected explicitly, instead of hanging on a fake join.
+  const invalidRoomError = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket2.off('room_join_error', handler);
+      reject(new Error('Timed out waiting for room_join_error'));
+    }, 5000);
+    function handler(result) {
+      if (result.code !== 'invalid_room_id') return;
+      clearTimeout(timer);
+      socket2.off('room_join_error', handler);
+      resolve(result);
+    }
+    socket2.on('room_join_error', handler);
+  });
+  socket2.emit('join_room', { roomId: '!!!', name: 'Bob' });
+  await invalidRoomError;
+  console.log('✓ Invalid room IDs return an explicit join error');
+
   socket2.emit('leave_room');
   const finalStateForAlice = await stateAfterBobLeaves;
   if (finalStateForAlice.participants.some((p) => p.name === 'Bob')) {
